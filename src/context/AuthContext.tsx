@@ -76,7 +76,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithGoogle = async (): Promise<{ success: boolean; message?: string }> => {
     try {
-      const redirectUrl = (import.meta as any).env.VITE_AUTH_REDIRECT_URL || window.location.origin;
+      let redirectUrl = (import.meta as any).env.VITE_AUTH_REDIRECT_URL;
+      if (!redirectUrl || !redirectUrl.startsWith('http')) {
+        redirectUrl = window.location.origin;
+      }
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

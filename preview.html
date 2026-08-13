@@ -1,0 +1,2409 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Penulis+ Workspace by Ranah Menulis</title>
+  
+  <!-- SEO & PWA Meta -->
+  <meta name="description" content="Digital Writing Workspace for Anthology Writers" />
+  <meta name="theme-color" content="#FFFFFF" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  
+  <!-- Google Fonts: Montserrat -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Montserrat', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          },
+          colors: {
+            workspace: {
+              black: '#0A0A0A',
+              card: '#FFFFFF',
+              'bg-canvas': '#F7F7F8',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- React 18, Babel & Lucide Icons CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    body {
+      font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #F7F7F8;
+      color: #0A0A0A;
+      -webkit-tap-highlight-color: transparent;
+      letter-spacing: -0.015em;
+    }
+    .pb-safe {
+      padding-bottom: env(safe-area-inset-bottom, 20px);
+    }
+    .pt-safe {
+      padding-top: env(safe-area-inset-top, 16px);
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translate(-50%, 12px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+    .animate-fade {
+      animation: fadeIn 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .animate-slide-up {
+      animation: slideUp 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body class="bg-[#F7F7F8] min-h-screen selection:bg-black selection:text-white">
+  <div id="root">
+    <!-- Initial Loading State while React mounts -->
+    <div class="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+      <div class="w-12 h-12 rounded-2xl bg-black flex items-center justify-center text-white font-bold text-base mb-3 shadow-sm">
+        P+
+      </div>
+      <p class="text-xs font-semibold text-zinc-500">Memuat Penulis+ Workspace...</p>
+    </div>
+  </div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // --- Lucide Icon Helper ---
+    const Icon = ({ name, size = 18, className = '', strokeWidth = 2, fill = 'none' }) => {
+      const ref = useRef(null);
+      useEffect(() => {
+        if (ref.current && window.lucide && window.lucide.icons) {
+          ref.current.innerHTML = '';
+          const iconDef = window.lucide.icons[name] || window.lucide.icons['Sparkles'];
+          if (iconDef) {
+            const iconElement = window.lucide.createElement(iconDef, {
+              width: size,
+              height: size,
+              'stroke-width': strokeWidth,
+              fill: fill,
+              class: className,
+            });
+            if (iconElement) {
+              ref.current.appendChild(iconElement);
+            }
+          }
+        }
+      }, [name, size, className, strokeWidth, fill]);
+
+      return <span ref={ref} className={`inline-flex items-center justify-center shrink-0 ${className}`} />;
+    };
+
+    // --- INSPIRATION DATA (SPRINT 2) ---
+    const INSPIRATION_CATEGORIES = [
+      { id: 'ide-cerita', title: 'Ide Cerita', shortDescription: 'Premis dan benih konflik emosional untuk naskah antologi.', iconName: 'Sparkles', itemCount: 10 },
+      { id: 'ide-judul', title: 'Ide Judul', shortDescription: 'Pilihan judul puitis dan menggugah rasa penasaran pembaca.', iconName: 'Type', itemCount: 10 },
+      { id: 'kalimat-pembuka', title: 'Kalimat Pembuka', shortDescription: 'Pengait pertama untuk memikat perhatian pembaca sejak baris awal.', iconName: 'AlignLeft', itemCount: 10 },
+      { id: 'kalimat-penutup', title: 'Kalimat Penutup', shortDescription: 'Kalimat akhir yang meninggalkan resonansi batin mendalam.', iconName: 'CheckCircle', itemCount: 10 },
+      { id: 'kamus-diksi', title: 'Kamus Diksi', shortDescription: 'Pilihan kata arkais dan puitis untuk memperkaya rasa bahasa.', iconName: 'Book', itemCount: 10 },
+      { id: 'kamus-transisi', title: 'Kamus Transisi', shortDescription: 'Jembatan kalimat untuk mengalirkan adegan tanpa jeda yang kaku.', iconName: 'ArrowRightLeft', itemCount: 10 },
+      { id: 'pertanyaan-refleksi', title: 'Pertanyaan Refleksi', shortDescription: 'Pemantik batin untuk menggali memori dan kebenaran terdalam.', iconName: 'HelpCircle', itemCount: 10 },
+    ];
+
+    const INSPIRATION_ITEMS = [
+      { id: 'ic-01', category: 'ide-cerita', content: 'Seorang wanita menemukan sepucuk surat tak terkirim di dalam saku mantel tua milik ibunya yang telah lama tiada, membongkar janji masa muda yang sengaja disembunyikan.', tag: 'Keluarga & Memori' },
+      { id: 'ic-02', category: 'ide-cerita', content: 'Dua orang sahabat yang terpisah selama dua dekade bertemu kembali di gerbong kereta malam, namun menyadari bahwa ingatan mereka tentang malam perpisahan saling bertolak belakang.', tag: 'Persahabatan & Waktu' },
+      { id: 'ic-03', category: 'ide-cerita', content: 'Seorang pembuat roti di sudut kota tua menyimpan rahasia para pelanggannya melalui resep kue yang ia sesuaikan dengan suasana hati orang yang memesannya.', tag: 'Kehidupan Sehari-hari' },
+      { id: 'ic-04', category: 'ide-cerita', content: 'Seseorang memutuskan untuk memaafkan masa lalunya dengan mengunjungi lima tempat penting yang pernah menjadi saksi luka terbesarnya.', tag: 'Penerimaan Diri' },
+      { id: 'ic-05', category: 'ide-cerita', content: 'Pertemuan tak sengaja antara seorang kurator buku antik dan seorang pemuda yang mencari catatan harian kakeknya yang hilang di masa revolusi.', tag: 'Sejarah & Penelusuran' },
+      { id: 'ij-01', category: 'ide-judul', content: 'Aku yang Tak Pernah Didengar', tag: 'Emosional' },
+      { id: 'ij-02', category: 'ide-judul', content: 'Sepotong Senja di Beranda Sunyi', tag: 'Puitis' },
+      { id: 'kp-01', category: 'kalimat-pembuka', content: 'Semua orang di kota ini tahu kapan hujan akan turun, tetapi tidak ada yang tahu kapan luka itu pertama kali bermula.', tag: 'Pengait Suasana' },
+      { id: 'kt-01', category: 'kalimat-penutup', content: 'Dan pada akhirnya, yang tersisa bukanlah siapa yang pergi lebih dulu, melainkan bagaimana kita belajar melangkah tanpa menoleh lagi.', tag: 'Pelepasan' },
+      { id: 'kd-01', category: 'kamus-diksi', content: 'Renjana — Rasa rindu atau cinta yang mendalam, kuat, dan penuh gairah batin.', context: 'Makna & Penggunaan Diksi Sastra', tag: 'Emosi' },
+      { id: 'ktr-01', category: 'kamus-transisi', content: 'Di sela-sela dentang waktu yang merambat pelan...', context: 'Transisi perpindahan suasana dan waktu', tag: 'Waktu' },
+      { id: 'pr-01', category: 'pertanyaan-refleksi', content: 'Kapan terakhir kali kamu merasa benar-benar didengar tanpa harus membela diri?', tag: 'Batin & Validasi' },
+    ];
+
+    // --- WORKSPACE DATA (SPRINT 3) ---
+    const WORKSPACE_FEATURES = [
+      { id: 'blueprint', title: 'Blueprint 10 Hari', shortDescription: 'Panduan langkah demi langkah menyelesaikan draf antologi dalam 10 hari.', iconName: 'CalendarCheck2' },
+      { id: 'workbook', title: 'Workbook Harian', shortDescription: 'Latihan menulis reflektif harian dengan fitur auto-save otomatis.', iconName: 'BookOpenCheck' },
+      { id: 'template-outline', title: 'Template Outline', shortDescription: 'Struktur bab teruji untuk naskah 500, 1000, dan 1500 kata.', iconName: 'LayoutTemplate' },
+      { id: 'template-naskah', title: 'Template Naskah', shortDescription: 'Format standar naskah siap kirim untuk buku antologi Ranah Menulis.', iconName: 'FileSpreadsheet' },
+      { id: 'editor', title: 'Editor Menulis', shortDescription: 'Ruang menulis fokus tanpa distraksi dengan hitungan kata dan target.', iconName: 'PenTool' },
+      { id: 'ebook', title: 'Ebook Panduan', shortDescription: 'Buku panduan kurasi dan penulisan antologi berstandar penerbit.', iconName: 'BookText' },
+    ];
+
+    const BLUEPRINT_DAYS = [
+      { day: 1, title: 'Hari 1: Menentukan Premis & Sudut Pandang', description: 'Tentukan satu pesan utama atau luka/pelajaran batin yang ingin kamu bagikan kepada pembaca.', task: 'Tuliskan premis ceritamu dalam 1–2 kalimat singkat.', tip: 'Fokus pada satu peristiwa penting.' },
+      { day: 2, title: 'Hari 2: Menyusun Outline Emosional (3 Babak)', description: 'Bagi ceritamu menjadi tiga titik emosi: Awal, Tengah, dan Akhir.', task: 'Buat 3–5 poin garis besar kronologi adegan.', tip: 'Pastikan ada transformasi tokoh.' },
+      { day: 3, title: 'Hari 3: Menghidupkan Tokoh & Suasana Ruang', description: 'Bangun detail panca indra di sekitar tokoh.', task: 'Tulis satu paragraf deskripsi latar tempat yang kuat.', tip: "Gunakan Show, Don't Tell." },
+      { day: 4, title: 'Hari 4: Menulis Paragraf Pembuka yang Memikat', description: 'Buat kalimat pertama yang langsung menarik pembaca.', task: 'Tulis 3 alternatif kalimat pembuka.', tip: 'Hindari pembuka klise.' },
+      { day: 5, title: 'Hari 5: Menuangkan Draf Kasar (First Draft Sprint)', description: 'Tulis terus tanpa mengedit atau menghakimi draf.', task: 'Tulis minimal 300–500 kata pertama.', tip: 'Matikan editor batinmu.' },
+      { day: 6, title: 'Hari 6: Membangun Titik Balik (Klimaks Batin)', description: 'Hadirkan momen paling rentan di mana tokoh mengambil keputusan sulit.', task: 'Tuliskan adegan konfrontasi paling jujur.', tip: 'Kejujuran adalah kunci.' },
+      { day: 7, title: 'Hari 7: Merangkai Kalimat Penutup & Makna', description: 'Beri pembaca ruang bernapas dengan penutup yang tenang.', task: 'Selesaikan draf pertamamu.', tip: 'Jangan menggurui.' },
+      { day: 8, title: 'Hari 8: Pembacaan Ulang & Evaluasi Alur (Macro Edit)', description: 'Baca naskahmu secara utuh dari awal sampai akhir.', task: 'Cek adegan yang melompat atau repetitif.', tip: 'Baca dengan suara lantang.' },
+      { day: 9, title: 'Hari 9: Memperkaya Diksi & Merapikan Kalimat (Micro Edit)', description: 'Ganti kata biasa dengan diksi sastra bernyawa.', task: 'Rapikan ejaan dan tanda baca.', tip: 'Cek tanda petik dialog.' },
+      { day: 10, title: 'Hari 10: Final Polish & Format Siap Kirim', description: 'Sesuaikan naskah ke Template Naskah resmi.', task: 'Salin naskah yang telah dipoles dan siap kirim.', tip: 'Selamat atas naskahmu!' },
+    ];
+
+    const WORKBOOK_EXERCISE = {
+      title: 'Momen Titik Balik Terbesar dalam Hidupmu',
+      instruction: 'Tuliskan secara jujur satu momen singkat yang mengubah cara pandangmu terhadap dunia atau dirimu sendiri.',
+      prompts: [
+        'Di mana kamu berada saat peristiwa itu terjadi?',
+        'Apa satu kalimat yang terucap (atau tersimpan di batin) saat itu?',
+        'Bagaimana kamu yang hari ini memandang peristiwa masa lalu tersebut?',
+      ],
+    };
+
+    const OUTLINE_TEMPLATES = [
+      {
+        id: 'outline-500',
+        targetWords: 500,
+        title: 'Template 500 Kata (Flash Essay / Vignette)',
+        subtitle: 'Cocok untuk tulisan singkat yang padat, puitis, dan fokus pada satu peristiwa emosional tunggal.',
+        sections: [
+          { name: '1. Pembuka / Hook (±100 Kata)', wordCount: '100 Kata', guideline: 'Membuka dengan satu adegan visual konkret atau pernyataan batin.' },
+          { name: '2. Eksplorasi Konflik & Batin (±300 Kata)', wordCount: '300 Kata', guideline: 'Mengurai mengapa momen tersebut terasa sangat membekas.' },
+          { name: '3. Penutup & Resonansi (±100 Kata)', wordCount: '100 Kata', guideline: 'Kalimat penutup yang menenangkan atau penerimaan diri.' },
+        ],
+        rawText: `[JUDUL TULISAN]\nOleh: [Nama Penulis]\nTarget: 500 Kata\n\n--- 1. PEMBUKA / HOOK (±100 Kata) ---\n[Tuliskan adegan pembuka yang menangkap visual atau suasana emosi mula-mula...]\n\n--- 2. EKSPLORASI KONFLIK & BATIN (±300 Kata) ---\n[Uraikan pergulatan rasa, memori yang berkelindan, dan detail peristiwa yang dialami...]\n\n--- 3. PENUTUP & RESONANSI (±100 Kata) ---\n[Tutup dengan penerimaan diri, makna baru, atau pelepasan yang tenang...]`
+      },
+      {
+        id: 'outline-1000',
+        targetWords: 1000,
+        title: 'Template 1000 Kata (Standard Anthology Chapter)',
+        subtitle: 'Format ideal bab buku antologi dengan ruang cukup untuk latar, dialog, dan pergulatan karakter.',
+        sections: [
+          { name: '1. Pengenalan & Titik Mula (±150 Kata)', wordCount: '150 Kata', guideline: 'Menetapkan ruang, waktu, dan suasana batin.' },
+          { name: '2. Eskalasi & Percakapan Kunci (±350 Kata)', wordCount: '350 Kata', guideline: 'Hadirkan tokoh lain atau dialog menyentuh.' },
+          { name: '3. Titik Balik / Klimaks Emosional (±350 Kata)', wordCount: '350 Kata', guideline: 'Puncak ketegangan emosional.' },
+          { name: '4. Resolusi & Katarsis (±150 Kata)', wordCount: '150 Kata', guideline: 'Refleksi akhir dan penerimaan.' },
+        ],
+        rawText: `[JUDUL NASKAH ANTOLOGI]\nOleh: [Nama Penulis]\nTarget: 1000 Kata\n\n--- 1. PENGENALAN & TITIK MULA (±150 Kata) ---\n[Bangun latar suasana dan perkenalkan keadaan tokoh sebelum konflik...]\n\n--- 2. ESKALASI & PERCAKAPAN KUNCI (±350 Kata) ---\n[Hadirkan interaksi, percakapan penting, dan penumpukan beban rasa...]\n\n--- 3. TITIK BALIK / KLIMAKS EMOSIONAL (±350 Kata) ---\n[Puncak ketegangan emosional atau keputusan krusial yang mengubah alur...]\n\n--- 4. RESOLUSI & KATARSIS (±150 Kata) ---\n[Refleksi akhir, penerimaan, dan kedamaian baru yang ditemukan...]`
+      },
+    ];
+
+    const MANUSCRIPT_TEMPLATE = {
+      rawText: `================================================\nFORMAT NASKAH ANTOLOGI RANAH MENULIS\n================================================\n\nJUDUL NASKAH : [Tuliskan Judul Naskah Anda]\nNAMA PENULIS : [Nama Lengkap / Nama Pena]\nKATEGORI TEMA: [Memori / Keluarga / Penerimaan]\nJUMLAH KATA  : [± 800 - 1200 Kata]\n\n------------------------------------------------\nISI NASKAH:\n------------------------------------------------\n\n[Paragraf 1: Mulai tulisan Anda di sini dengan kalimat pembuka yang kuat...]\n\n[Paragraf 2: Lanjutkan dengan pengembangan adegan dan dialog...]\n\n[Paragraf 3: Alirkan narasi menuju klimaks rasa...]\n\n[Paragraf 4: Hadirkan penutup yang mendalam...]\n\n------------------------------------------------\nBIODATA SINGKAT PENULIS (Maksimal 50 Kata):\n------------------------------------------------\n[Nama Penulis] adalah seorang penulis yang mencintai dunia literasi...`
+    };
+
+    // --- WRITING ASSISTANT DATA (SPRINT 4) ---
+    const AI_PROMPT_CATEGORIES = [
+      { id: 'cari-ide', title: 'Cari Ide', description: 'Temukan premis, sudut pandang unik, dan benih konflik emosional untuk naskah antologi.', iconName: 'Sparkles', promptCount: 5 },
+      { id: 'buat-outline', title: 'Buat Outline', description: 'Rancang struktur alur 3 babak, pacing adegan, dan kronologi cerita yang rapi.', iconName: 'LayoutTemplate', promptCount: 5 },
+      { id: 'perbaiki-judul', title: 'Perbaiki Judul', description: 'Hasilkan judul puitis, menggugah emosi, dan berdaya pikat tinggi bagi pembaca.', iconName: 'Type', promptCount: 5 },
+      { id: 'kalimat-pembuka', title: 'Kalimat Pembuka', description: 'Ciptakan hook kalimat pertama yang langsung menarik pembaca ke dalam cerita.', iconName: 'AlignLeft', promptCount: 5 },
+      { id: 'kalimat-penutup', title: 'Kalimat Penutup', description: 'Rangkai kalimat akhir yang melegakan, mendalam, dan meninggalkan resonansi batin.', iconName: 'CheckCircle', promptCount: 5 },
+      { id: 'perbaiki-diksi', title: 'Perbaiki Diksi', description: 'Tingkatkan pilihan kata biasa menjadi diksi sastra bernyawa dan kaya makna.', iconName: 'Book', promptCount: 5 },
+      { id: 'proofreading', title: 'Proofreading', description: 'Periksa kesesuaian PUEBI, tanda baca dialog, typo, dan keutuhan kalimat.', iconName: 'CheckCheck', promptCount: 5 },
+      { id: 'perbaiki-emosi', title: 'Perbaiki Emosi', description: "Terapkan teknik Show, Don't Tell dan perdalam keintiman emosional antartokoh.", iconName: 'Heart', promptCount: 5 },
+      { id: 'caption-promosi', title: 'Caption Promosi', description: 'Tulis caption peluncuran buku, quote teaser, dan promosi pre-order naskah.', iconName: 'Share2', promptCount: 5 },
+    ];
+
+    const AI_PROMPT_ITEMS = [
+      // 1. Cari Ide
+      { id: 'ci-01', categoryId: 'cari-ide', title: 'Brainstorming Premis Konflik Batin', description: 'Gali 5 ide cerita berdasarkan tema memori, kehilangan, atau penerimaan hidup.', tag: 'Eksplorasi Premis', promptText: `Bertindaklah sebagai kurator dan editor buku antologi sastra berpengalaman.\nSaya sedang merencanakan sebuah naskah antologi dengan tema besar: "[MASUKKAN TEMA: misal: Luka Masa Lalu / Rumah / Melepaskan]".\n\nTolong bantu saya menyusun 5 variasi premis cerita fiksi/kisah personal yang unik dan menyentuh hati. Untuk setiap premis, sertakan:\n1. Premis Satu Kalimat (Tokoh utama, situasi awal, konflik batin yang dihadapi).\n2. Titik Balik Emosional (Momen kritis yang mengubah tokoh).\n3. Pesan / Katarsis Batin yang ingin ditinggalkan kepada pembaca.\n\nGunakan nada bahasa yang kontemplatif, hangat, dan manusiawi.` },
+      { id: 'ci-02', categoryId: 'cari-ide', title: 'Eksplorasi Sudut Pandang (POV Shift)', description: 'Uji bagaimana sebuah peristiwa terlihat dari sudut pandang tokoh yang berbeda.', tag: 'Sudut Pandang', promptText: `Saya memiliki sebuah peristiwa dasar berikut:\n"[CERITAKAN SINGKAT KEJADIANNYA DI SINI: misal: Pertengkaran di meja makan sebelum salah satu anggota keluarga merantau]".\n\nTolong bantu saya membedah peristiwa ini ke dalam 3 sudut pandang narasi yang berbeda:\n1. Sudut Pandang Orang Pertama (Tokoh yang merasa ditinggalkan/terluka).\n2. Sudut Pandang Orang Pertama (Tokoh yang harus pergi mengambil keputusan sulit).\n3. Sudut Pandang Orang Ketiga Pengamat (Saksi bisu atau orang yang hanya melihat dari kejauhan).\n\nTunjukkan kontras emosi dan detail sensorik apa yang paling menonjol pada masing-masing sudut pandang.` },
+      { id: 'ci-03', categoryId: 'cari-ide', title: 'Menemukan Simbol & Motif Cerita', description: 'Temukan benda atau metafora visual yang mewakili tema cerita naskahmu.', tag: 'Simbolisme', promptText: `Saya sedang menulis naskah tentang: "[JELASKAN TOPIK CERITA: misal: Rekonsiliasi antara ayah dan anak setelah 10 tahun terpisah]".\n\nTolong berikan 5 ide "Benda Simbolis / Motif Visual" (misal: arloji mati, resep masakan yang robek, kunci rumah lama) yang dapat digunakan sepanjang cerita sebagai jangkar emosi.\n\nUntuk setiap simbol, jelaskan:\n- Makna simbol tersebut di awal cerita.\n- Pergeseran makna simbol di puncak konflik.\n- Bagaimana simbol tersebut diselesaikan di akhir cerita.` },
+      { id: 'ci-04', categoryId: 'cari-ide', title: 'Transformasi Memori Nyata Menjadi Fiksi Universal', description: 'Ubah pengalaman pribadi sensitif menjadi karya sastra yang indah.', tag: 'Memoir & Fiksi', promptText: `Saya ingin menulis naskah yang terinspirasi dari pengalaman pribadi nyata saya:\n"[TULISKAN PENGALAMAN PRIBADI SECARA JUJUR]".\n\nTolong bantu saya:\n1. Mengidentifikasi "Kebenaran Emosional Utama" (Core Emotional Truth) dari pengalaman ini.\n2. Mengembangkan 3 variasi latar dan karakterisasi fiktif agar cerita tetap menjaga privasi orang terkait namun dampak emosinya tetap kuat dan universal bagi pembaca antologi.` },
+      { id: 'ci-05', categoryId: 'cari-ide', title: 'Pembangkit Ide dari Objek / Foto Masa Lalu', description: 'Gali cerita mendalam dari sebuah objek nostalgia atau potret lama.', tag: 'Nostalgia', promptText: `Bayangkan sebuah cerita bermula dari sebuah benda sederhana berikut:\n"[SEBUTKAN BENDA: misal: Sepasang cangkir keramik retak / Jaket lusuh bernoda cat / Kaset rekaman pita kusut]".\n\nBantu saya membuat 3 premis cerita antologi dengan alur yang tidak terduga, di mana rahasia di balik benda tersebut perlahan terungkap di sepanjang babak.` },
+
+      // 2. Buat Outline
+      { id: 'bo-01', categoryId: 'buat-outline', title: 'Struktur Alur 3 Babak Klasik (1000 Kata)', description: 'Susun outline seimbang antara pengenalan, eskalasi, dan resolusi cerita.', tag: '3 Babak', promptText: `Bertindaklah sebagai ahli struktur naratif.\nSaya ingin menulis naskah antologi dengan target panjang 1000 kata.\nPremis cerita saya: "[MASUKKAN PREMIS CERITA]".\n\nTolong buatkan outline naskah terperinci dengan pembagian:\n1. Babak 1: Titik Mula & Pembuka (±150 kata) — Penetapan latar dan suasana hati.\n2. Babak 2A: Eskalasi Konflik (±300 kata) — Pergulatan rasa dan interaksi kunci.\n3. Babak 2B: Titik Balik / Klimaks Emosi (±350 kata) — Puncak ketegangan batin.\n4. Babak 3: Resolusi & Katarsis (±200 kata) — Makna baru dan penutup kontemplatif.\n\nBerikan poin-poin adegan konkret di setiap babak.` },
+      { id: 'bo-02', categoryId: 'buat-outline', title: 'Struktur Flash Narrative / Vignette (500 Kata)', description: 'Outline padat dan fokus untuk cerita pendek beraliran puitis.', tag: '500 Kata', promptText: `Saya membutuhkan outline untuk naskah singkat (Flash Essay / Vignette) sepanjang 500 kata.\nTopik cerita: "[MASUKKAN TOPIK/PERISTIWA]".\n\nSusun outline ringkas dan tajam dengan 3 bagian:\n- Scene 1: Visual Hook & Atmosfer Batin (100 kata)\n- Scene 2: Retakan Rasa & Perenungan Konflik (300 kata)\n- Scene 3: Pelepasan & Kalimat Gaung Akhir (100 kata)\n\nPastikan setiap bagian memiliki instruksi emosi spesifik bagi penulis.` },
+      { id: 'bo-03', categoryId: 'buat-outline', title: 'Outline Struktur Non-Linear / Kilas Balik', description: 'Struktur alur bolak-balik antara masa kini dan masa lalu secara mulus.', tag: 'Alur Maju-Mundur', promptText: `Saya ingin menulis cerita dengan alur bolak-balik (non-linear) antara masa kini dan masa lalu.\nPeristiwa masa kini: "[PERISTIWA HARI INI]"\nPeristiwa masa lalu: "[MEMORI 10 TAHUN LALU]"\n\nBantu saya menyusun outline 5 sekuens adegan yang bergantian dengan jembatan transisi sensorik (seperti suara, aroma, atau benda pemicu memori) agar pembaca tidak bingung.` },
+      { id: 'bo-04', categoryId: 'buat-outline', title: 'Pemetaan Pacing & Eskalasi Ketegangan Batin', description: 'Atur grafik emosi agar cerita tidak terasa datar di tengah naskah.', tag: 'Pacing & Tempo', promptText: `Berikut adalah ringkasan draf/ide cerita saya:\n"[JELASKAN RINGKASAN CERITA]".\n\nTolong evaluasi ritme (pacing) cerita ini dan buatkan kurva eskalasi emosi per paragraf. Beri tahu saya:\n1. Di mana tempo narasi harus diperlambat untuk menonjolkan detail rasa.\n2. Di mana tempo harus dipercepat untuk membangun ketegangan.\n3. Di mana letak puncak keheningan batin sebelum klimaks.` },
+      { id: 'bo-05', categoryId: 'buat-outline', title: 'Outline Naskah Dialog Mendalam (Dua Tokoh)', description: 'Fokus pada percakapan penting yang membongkar rahasia di antara dua orang.', tag: 'Fokus Dialog', promptText: `Saya ingin menulis naskah antologi yang intinya bertumpu pada percakapan jujur antara dua orang tokoh: [TOKOH A] dan [TOKOH B] di tempat [LATAR LOKASI].\n\nBuatkan outline adegan demi adegan yang memandu bagaimana percakapan mereka bermula dari obrolan basa-basi dingin, meningkat menjadi saling menuntut kejujuran, hingga berakhir pada penerimaan.` },
+
+      // 3. Perbaiki Judul
+      { id: 'pj-01', categoryId: 'perbaiki-judul', title: '10 Alternatif Judul Puitis & Menggugah', description: 'Dapatkan 10 variasi judul bernuansa sastra dengan berbagai gaya bahasa.', tag: 'Koleksi Judul', promptText: `Bertindaklah sebagai editor judul buku antologi sastra.\nNaskah saya menceritakan tentang: "[JELASKAN INTI CERITA ATAU TOPIKNYA]".\nEmosi utama naskah: "[misal: Rindu yang tertahan / Kekecewaan yang menjadi ikhlas]".\n\nBerikan 10 opsi judul naskah dengan variasi gaya:\n- 3 Judul Singkat (1–2 kata, berbobot).\n- 4 Judul Puitis Kontemplatif (3–5 kata, metaforis).\n- 3 Judul Kalimat Menggantung (menimbulkan rasa penasaran).\n\nSertakan alasan singkat mengapa judul tersebut berdaya pikat.` },
+      { id: 'pj-02', categoryId: 'perbaiki-judul', title: 'Judul Berbasis Paradoks & Kontras Rasa', description: 'Ciptakan judul yang menggabungkan dua hal berlawanan yang memikat rasa.', tag: 'Paradoks', promptText: `Bantu saya membuat 5 judul naskah antologi yang menggunakan teknik kontras / paradoks (seperti: "Menghangatkan Dingin", "Bising dalam Sunyi", "Belajar Pulang dari Perpisahan").\nInti cerita saya adalah: "[MASUKKAN INTI CERITA]".\n\nPastikan judul terdengar anggun, tidak klise, dan relevan dengan kisah saya.` },
+      { id: 'pj-03', categoryId: 'perbaiki-judul', title: 'Judul Menggunakan Diksi Sastra Indonesia Indah', description: 'Manfaatkan diksi arkais seperti Renjana, Saujana, Swastamita, atau Arunika.', tag: 'Diksi Indah', promptText: `Saya ingin judul naskah saya memuat salah satu diksi sastra Indonesia yang indah dan mendalam (contoh: Renjana, Saujana, Nirmala, Swastamita, Senandika, Jenggala, atau lainnya).\nTema naskah: "[JELASKAN TEMA]".\n\nTolong pilihkan 5 diksi yang paling pas dan susun menjadi frasa judul yang berkelas dan tidak dipaksakan.` },
+      { id: 'pj-04', categoryId: 'perbaiki-judul', title: 'Bedah dan Poles Judul yang Sudah Ada', description: 'Tingkatkan kualitas judul yang sedang kamu gunakan saat ini.', tag: 'Polish Judul', promptText: `Judul naskah kerja saya saat ini adalah: "[MASUKKAN JUDUL ANDA SAAT INI]".\nInti cerita: "[JELASKAN INTI CERITA]".\n\nTolong berikan penilaian jujur terhadap judul ini (apakah terlalu biasa, klise, atau kurang kuat?), lalu tawarkan 5 versi perbaikan yang lebih memikat bagi pembaca buku antologi.` },
+      { id: 'pj-05', categoryId: 'perbaiki-judul', title: 'Judul Berdasarkan Kutipan Kunci Naskah', description: 'Ambil intisari kalimat terkuat di dalam naskah untuk dijadikan judul.', tag: 'Kutipan Judul', promptText: `Berikut adalah kutipan paragraf/kalimat terbaik dari naskah saya:\n"[MASUKKAN KUTIPAN TERBAIK DARI NASKAHMU]".\n\nBantu saya mengekstrak 5 ide judul potensial yang bersumber langsung dari jiwa kutipan di atas.` },
+
+      // 4. Kalimat Pembuka
+      { id: 'kp-01', categoryId: 'kalimat-pembuka', title: 'Hook Pembuka Aksi & Gerak Tokoh', description: 'Mulai cerita langsung di tengah adegan tanpa bertele-tele.', tag: 'In Media Res', promptText: `Saya ingin membuat paragraf pembuka naskah dengan teknik In Media Res (langsung masuk ke tengah aksi adegan).\nAdegan pembukanya adalah: "[JELASKAN ADEGAN AWAL: misal: Tokoh sedang mengepak koper terburu-buru di tengah malam]".\n\nTolong buatkan 3 alternatif paragraf pembuka (masing-masing 2–4 kalimat) yang langsung mencengkeram perhatian pembaca sejak kata pertama.` },
+      { id: 'kp-02', categoryId: 'kalimat-pembuka', title: 'Hook Pembuka Berbasis Pengamatan Sensorik', description: 'Bangun suasana atmosferik lewat panca indra (bau, suara, suhu).', tag: 'Sensorik & Detail', promptText: `Bantu saya menulis kalimat pembuka naskah yang mengandalkan kepekaan panca indra (suara rintik di seng, aroma kopi dingin, atau gemetar ujung jemari).\nLatar tempat: "[TEMPAT CERITA]"\nSuasana hati: "[PERASAAN TOKOH]"\n\nBerikan 4 opsi kalimat pembuka yang puitis, hening, dan visual.` },
+      { id: 'kp-03', categoryId: 'kalimat-pembuka', title: 'Hook Pernyataan Paradoksal / Filosofis', description: 'Mulai dengan satu kebenaran hidup yang mengejutkan atau kontemplatif.', tag: 'Kontemplatif', promptText: `Saya ingin membuka naskah saya dengan satu pernyataan batin yang kuat dan berani tentang: "[TOPIK: misal: Memaafkan orang yang tidak pernah meminta maaf]".\n\nTuliskan 5 opsi kalimat pembuka pertama yang terdengar seperti kutipan sastra klasik yang tak terlupakan.` },
+      { id: 'kp-04', categoryId: 'kalimat-pembuka', title: 'Re-write Paragraf Pembuka yang Terasa Kaku', description: 'Poles paragraf pembuka yang ada agar lebih mengalir dan hidup.', tag: 'Rewrite Pembuka', promptText: `Berikut adalah paragraf pembuka naskah yang sudah saya tulis:\n"[PASTE PARAGRAF PEMBUKA ANDA DI SINI]".\n\nTolong perbaiki paragraf ini menjadi 3 versi:\n1. Versi Lebih Puitis & Sastrawi.\n2. Versi Lebih Minimalis & Tajam.\n3. Versi Lebih Emosional & Menghanyutkan.` },
+      { id: 'kp-05', categoryId: 'kalimat-pembuka', title: 'Hook Pembuka Berbasis Dialog Menghentak', description: 'Gunakan satu baris dialog tajam sebagai kalimat pembuka naskah.', tag: 'Dialog Pembuka', promptText: `Saya ingin membuka cerita langsung dengan satu baris dialog yang membuat pembaca bertanya-tanya apa yang sedang terjadi.\nTopik konflik: "[KONFLIK TOKOH]".\n\nBerikan 5 opsi kalimat dialog pembuka beserta aksi fisik penyerta tokohnya.` },
+
+      // 5. Kalimat Penutup
+      { id: 'kt-01', categoryId: 'kalimat-penutup', title: 'Ending Reflektif yang Mengendap Tenang', description: 'Tutup cerita dengan kelegaan dan penerimaan yang tidak menggurui.', tag: 'Penerimaan', promptText: `Naskah saya menceritakan tentang: "[RINGKASAN AKHIR CERITA]".\nPesan batin yang ingin dicapai tokoh: "[misal: Berdamai dengan takdir dan belajar melangkah lagi]".\n\nTolong buatkan 4 opsi paragraf penutup (2–4 kalimat) yang memberikan rasa hangat, melegakan, dan tidak terkesan memberi nasihat klise.` },
+      { id: 'kt-02', categoryId: 'kalimat-penutup', title: 'Circular Ending (Menautkan Kembali ke Awal)', description: 'Ikat akhir cerita dengan elemen yang muncul pada kalimat pertama.', tag: 'Circular Ending', promptText: `Paragraf pembuka naskah saya adalah:\n"[PASTE PARAGRAF PEMBUKA]"\n\nInti perjalanan cerita: "[JELASKAN PERUBAHAN TOKOH]"\n\nTolong bantu saya merangkai 3 opsi paragraf penutup yang merujuk kembali pada simbol/suasana di paragraf pembuka tadi, namun dengan makna batin yang sudah bertransformasi.` },
+      { id: 'kt-03', categoryId: 'kalimat-penutup', title: 'Ending dengan Metafora Lanskap / Waktu', description: 'Gunakan perubahan alam (senja, fajar, musim) sebagai penutup adegan.', tag: 'Metafora Alam', promptText: `Saya ingin menutup naskah saya dengan metafora peralihan waktu (misal: fajar yang mulai menyingsing, kabut yang terangkat, atau jalanan kota yang kembali sunyi).\nMakna akhir cerita: "[MAKNA AKHIR]".\n\nBuatkan 3 kalimat penutup yang melankolis namun memberi harapan baru.` },
+      { id: 'kt-04', categoryId: 'kalimat-penutup', title: 'Memoles Kalimat Terakhir yang Menggantung', description: 'Sempurnakan kalimat pamungkas agar memiliki denting resonansi yang kuat.', tag: 'Punchline Ending', promptText: `Berikut adalah draf paragraf penutup saya:\n"[PASTE DRAF PENUTUP ANDA]".\n\nTolong evaluasi dan berikan 3 alternatif kalimat terakhir (punchline ending) yang paling menggetarkan hati pembaca.` },
+      { id: 'kt-05', categoryId: 'kalimat-penutup', title: 'Ending Pelepasan & Keikhlasan', description: 'Ciptakan penutup untuk cerita tentang kehilangan atau merelakan seseorang.', tag: 'Keikhlasan', promptText: `Naskah saya adalah tentang proses merelakan seseorang/sesuatu yang sangat berharga.\nBantu saya menyusun 4 opsi kalimat penutup yang lembut, jujur, dan menyentuh ranah terdalam tentang arti melepaskan tanpa dendam.` },
+
+      // 6. Perbaiki Diksi
+      { id: 'pd-01', categoryId: 'perbaiki-diksi', title: 'Meningkatkan Kualitas Diksi Biasa Menjadi Sastra', description: 'Ganti kata-kata pasaran dengan sinonim sastra yang kaya dan bernyawa.', tag: 'Enhance Diksi', promptText: `Bertindaklah sebagai editor gaya bahasa sastra.\nBerikut adalah cuplikan paragraf dari naskah saya:\n"[PASTE PARAGRAF YANG INGIN DIPERBAIKI]".\n\nTolong perbaiki paragraf ini dengan mengganti kata-kata yang terlalu umum menjadi diksi sastra Indonesia yang anggun dan berbobot tanpa membuatnya terasa berlebihan atau sulit dipahami.\nTunjukkan tabel perbandingan kata sebelum dan sesudah.` },
+      { id: 'pd-02', categoryId: 'perbaiki-diksi', title: 'Menghapus Klise & Frasa Pasaran', description: 'Temukan ungkapan klise yang sering diulang dan gantikan dengan metafora segar.', tag: 'Hapus Klise', promptText: `Periksa teks berikut ini:\n"[PASTE TEKS ANDA]".\n\nTolong identifikasi seluruh ungkapan klise (misal: "bagai disambar petir", "air mata bercucuran"), dan ganti setiap klise tersebut dengan 2 alternatif metafora baru yang orisinal dan segar.` },
+      { id: 'pd-03', categoryId: 'perbaiki-diksi', title: 'Membangun Ritme Kalimat & Aliterasi Indah', description: 'Rapikan panjang-pendek kalimat agar enak dibaca dengan suara lantang.', tag: 'Ritme & Musikalitas', promptText: `Berikut adalah naskah saya:\n"[PASTE PARAGRAF ANDA]".\n\nTolong tata ulang struktur kalimatnya agar memiliki irama baca yang musikal sehingga sangat nyaman saat dibacakan secara vokal.` },
+      { id: 'pd-04', categoryId: 'perbaiki-diksi', title: 'Eksplorasi Kata Kerja Sensorik Aktif', description: 'Ganti kata kerja pasif menjadi kata kerja aktif yang memicu imajinasi visual.', tag: 'Kata Kerja Sensorik', promptText: `Tolong ubah kalimat-kalimat deskriptif berikut agar menggunakan kata kerja sensorik yang lebih tajam dan hidup:\n"[PASTE BEBERAPA KALIMAT DESKRIPSI ANDA]".\n\nFokus pada penguatan visualisasi, bunyi, dan sensasi sentuhan fisik tokoh.` },
+      { id: 'pd-05', categoryId: 'perbaiki-diksi', title: 'Harmonisasi Nada Bahasa (Tone Consistency)', description: 'Pastikan nada bahasa dari awal hingga akhir konsisten tidak melompat.', tag: 'Konsistensi Nada', promptText: `Berikut adalah potongan bagian awal dan bagian tengah naskah saya:\n"[PASTE POTONGAN TEKS]".\n\nTolong cek apakah nada bahasanya sudah serasi dan tidak saling bertabrakan. Berikan rekomendasi perbaikan kalimat yang melenceng.` },
+
+      // 7. Proofreading
+      { id: 'pr-01', categoryId: 'proofreading', title: 'Pemeriksaan PUEBI, Typo & Ejaan Baku', description: 'Deteksi kesalahan ketik, kata tidak baku, dan ejaan sesuai KBBI/PUEBI.', tag: 'PUEBI & KBBI', promptText: `Bertindaklah sebagai korektor naskah (proofreader) profesional berstandar penerbit mayor.\nTolong periksa teks berikut:\n"[PASTE NASKAH ANDA DI SINI]".\n\nLakukan pemeriksaan mendalam terhadap:\n1. Typo / salah ketik.\n2. Kata tidak baku (ubah ke bentuk baku KBBI: misal 'sekedar' -> 'sekadar', 'merubah' -> 'mengubah').\n3. Penulisan imbuhan 'di-' (sebagai awalan vs kata depan penunjuk tempat).\n\nSajikan hasil koreksi dalam format daftar yang rapi dan sertakan teks utuh yang sudah bersih.` },
+      { id: 'pr-02', categoryId: 'proofreading', title: 'Koreksi Format Tanda Baca Dialog', description: 'Rapikan tanda petik dua, koma, titik, dan huruf kapital pada percakapan.', tag: 'Tanda Baca Dialog', promptText: `Berikut adalah naskah saya yang memuat percakapan antar tokoh:\n"[PASTE TEKS DIALOG ANDA]".\n\nTolong rapikan seluruh tanda baca dialog sesuai aturan penulisan sastra resmi Indonesia (letak tanda petik, tanda koma/titik di dalam dialog, dan penulisan dialog tag).` },
+      { id: 'pr-03', categoryId: 'proofreading', title: 'Deteksi Kalimat Bertele-tele (Wordiness)', description: 'Pangkas kata-kata mubazir agar naskah lebih padat dan bertenaga.', tag: 'Pangkas Mubazir', promptText: `Tolong pangkas kata-kata mubazir dan kalimat yang bertele-tele dari teks berikut:\n"[PASTE TEKS ANDA]".\n\nTujuan: Membuat naskah lebih efisien, hemat kata, namun maknanya tetap utuh dan lebih kuat.` },
+      { id: 'pr-04', categoryId: 'proofreading', title: 'Pemeriksaan Konsistensi Sudut Pandang (POV)', description: "Pastikan kata ganti orang ('aku', 'ia', 'kami') tidak tertukar di tengah jalan.", tag: 'Cek Konsistensi POV', promptText: `Tolong periksa apakah ada pergeseran sudut pandang narator yang tidak sengaja (POV slip) pada teks berikut:\n"[PASTE TEKS LENGKAP ANDA]".` },
+      { id: 'pr-05', categoryId: 'proofreading', title: 'Audit Akhir Kesiapan Setor Naskah', description: 'Pemeriksaan kelayakan menyeluruh sebelum naskah dikirim ke kurator antologi.', tag: 'Final Audit', promptText: `Saya akan menyetorkan naskah ini ke kurasi buku antologi.\nBerikut naskah lengkap saya:\n"[PASTE NASKAH LENGKAP]".\n\nBerikan audit ringkas mengenai kerapian ejaan, kejelasan alur, dan kekuatan naskah.` },
+
+      // 8. Perbaiki Emosi
+      { id: 'pe-01', categoryId: 'perbaiki-emosi', title: "Show, Don't Tell: Mengubah Pernyataan Menjadi Gestur", description: 'Ubah kalimat yang hanya "memberitahu" menjadi adegan nyata yang terasa di tubuh.', tag: "Show, Don't Tell", promptText: `Tolong bantu saya menerapkan teknik Show, Don't Tell pada potongan naskah berikut:\n"[PASTE POTONGAN NASKAH]".\n\nUbah pernyataan emosi abstrak (misal: "Dia sangat sedih dan kecewa") menjadi detail reaksi fisik konkret (gerak napas, tatapan mata, gemetar tangan, ketegangan otot leher, atau keheningan yang canggung).\nBerikan 3 variasi penggambaran.` },
+      { id: 'pe-02', categoryId: 'perbaiki-emosi', title: 'Memperdalam Monolog Batin & Kejujuran Tokoh', description: 'Buka lapisan pikiran terdalam yang paling rentan dan manusiawi dari tokoh.', tag: 'Kejujuran Batin', promptText: `Pada adegan berikut, tokoh saya sedang mengalami dilema batin:\n"[JELASKAN DILEMA ATAU PASTE PARAGRAF]".\n\nTolong perdalam monolog batin tokoh agar terasa lebih rentan, jujur, dan tidak berpura-pura kuat. Biarkan pembaca merasakan detak kebingungan yang nyata di dalam benaknya.` },
+      { id: 'pe-03', categoryId: 'perbaiki-emosi', title: 'Membangun Ketegangan Batin Antara Dua Tokoh', description: 'Ciptakan adegan di mana hal yang tidak terucap jauh lebih berat daripada dialog.', tag: 'Subtext & Hening', promptText: `Saya ingin menulis adegan pertemuan dua tokoh yang menyimpan luka lama di antara mereka.\nTolong bantu saya menyusun interaksi yang kaya akan subtext (hal-hal yang sengaja disembunyikan di balik tatapan dan jeda panjang percakapan).\nBerikan draf adegan 200–300 kata.` },
+      { id: 'pe-04', categoryId: 'perbaiki-emosi', title: 'Menghadirkan Duka Tanpa Melodramatis', description: 'Sentuh hati pembaca secara elegan tanpa terkesan berlebihan atau meratap.', tag: 'Duka Elegan', promptText: `Adegan naskah saya menceritakan tentang momen kehilangan orang/tempat tercinta:\n"[JELASKAN PERISTIWA KEHILANGAN]".\n\nTolong tuliskan ulang adegan ini dengan pendekatan yang tenang, hening, dan terhormat. Hindari drama berlebihan; fokuskan pada kehampaan di sudut ruangan dan rutinitas kecil yang kini terasa berbeda.` },
+      { id: 'pe-05', categoryId: 'perbaiki-emosi', title: 'Memperkuat Momen Katarsis & Rekonsiliasi Batin', description: 'Hadirkan pelepasan emosi yang membuat pembaca menarik napas lega.', tag: 'Katarsis', promptText: `Saya ingin momen rekonsiliasi/klimaks batin dalam cerita saya berikut ini terasa menggetarkan:\n"[PASTE DRAF ADEGAN REKONSILIASI]".\n\nBantu saya memoles kata-katanya agar momen saat tokoh akhirnya memaafkan/merelakan terasa seperti beban berat yang perlahan terangkat dari dada.` },
+
+      // 9. Caption Promosi
+      { id: 'cp-01', categoryId: 'caption-promosi', title: 'Caption Storytelling Teaser Peluncuran Buku Antologi', description: 'Ajak pembaca penasaran dengan cerita di balik proses penulisan naskahmu.', tag: 'Storytelling Teaser', promptText: `Bertindaklah sebagai copywriter sastra untuk media sosial (Instagram/Threads/TikTok).\nNaskah saya dalam buku antologi berjudul: "[JUDUL NASKAH]".\nInti cerita naskah: "[JELASKAN INTI KISAH]".\nBuku antologi ini diterbitkan oleh: "Ranah Menulis".\n\nTolong buatkan 2 opsi caption storytelling yang menyentuh hati:\n- Hook pembuka yang relatable -> Kisah singkat di balik penulisan -> Call to Action lembut.\n- Gunakan nada bahasa yang hangat, bersahaja, dan estetis.` },
+      { id: 'cp-02', categoryId: 'caption-promosi', title: 'Caption Kutipan Terbaik (Quote Reveal Post)', description: 'Format caption estetik yang mengiringi gambar kutipan naskahmu.', tag: 'Quote Post', promptText: `Berikut adalah kutipan terbaik dari bab naskah saya di buku antologi:\n"[MASUKKAN KUTIPAN KUNCI]".\n\nBantu saya membuat caption Instagram yang menguraikan makna di balik kutipan tersebut dalam 3–4 paragraf pendek yang reflektif, diakhiri dengan ajakan membaca cerita lengkapnya di buku antologi terbaru Ranah Menulis.` },
+      { id: 'cp-03', categoryId: 'caption-promosi', title: 'Caption Pembukaan Pre-Order (Pre-Order Launch)', description: 'Promosikan masa pemesanan buku antologi dengan ajakan yang elegan.', tag: 'Pre-Order Promo', promptText: `Buku antologi bersama Ranah Menulis yang memuat tulisan saya akhirnya resmi membuka sesi Pre-Order!\nJudul Naskah Saya: "[JUDUL NASKAH]"\nJudul Buku Antologi: "[JUDUL BUKU]"\nBenefit / Periode PO: "[MASUKKAN DETAIL PO / TANGGAL]"\n\nTolong buatkan caption promosi yang elegan, tidak terkesan hard-selling, namun membuat teman dan pembaca merasa ingin memiliki buku ini di rak mereka.` },
+      { id: 'cp-04', categoryId: 'caption-promosi', title: 'Carousel Copywriting: 5 Pelajaran dari Naskah Saya', description: 'Susun teks slide demi slide untuk postingan edukatif/reflektif Instagram carousel.', tag: 'Carousel Slides', promptText: `Saya ingin membuat postingan Instagram Carousel (5–7 slide) berdasarkan tema naskah saya: "[MASUKKAN TEMA CERITA]".\n\nTolong buatkan susunan teks per slide:\n- Slide 1: Cover Hook yang memikat.\n- Slide 2–5: 4 Pelajaran hidup atau renungan batin utama dari cerita.\n- Slide 6: Cuplikan satu paragraf dari buku.\n- Slide 7: Penutup & ajakan memiliki buku antologi.` },
+      { id: 'cp-05', categoryId: 'caption-promosi', title: 'Caption Apresiasi & Perjalanan Menulis Antologi', description: 'Ungkapkan rasa syukur atas rampungnya naskah setelah berproses di Ranah Menulis.', tag: 'Apresiasi & Refleksi', promptText: `Saya ingin membagikan postingan rasa syukur dan refleksi tentang bagaimana rasanya menyelesaikan naskah antologi ini dari yang awalnya ragu hingga akhirnya siap terbit bersama penulis-penulis hebat lainnya di Ranah Menulis.\n\nTolong buatkan caption hangat dan personal yang menginspirasi teman-teman lain untuk berani menuliskan cerita mereka sendiri.` },
+    ];
+
+    // --- UI Helpers ---
+    const Logo = ({ size = 'md' }) => {
+      const dim = size === 'lg' ? 'w-16 h-16 rounded-[20px]' : size === 'xl' ? 'w-20 h-20 rounded-[24px]' : 'w-10 h-10 rounded-2xl';
+      const textDim = size === 'lg' ? 'text-2xl' : size === 'xl' ? 'text-3xl' : 'text-sm';
+      return (
+        <div className="inline-flex flex-col items-center justify-center select-none">
+          <div className={`${dim} bg-black flex items-center justify-center text-white shadow-sm`}>
+            <span className={`font-bold tracking-tighter text-white font-sans ${textDim}`}>
+              P<span className="text-zinc-400 font-light">+</span>
+            </span>
+          </div>
+        </div>
+      );
+    };
+
+    const Button = ({ children, variant = 'primary', size = 'md', fullWidth = false, isLoading = false, leftIcon, rightIcon, onClick, type = 'button', className = '', disabled = false }) => {
+      const base = 'inline-flex items-center justify-center font-medium font-sans tracking-tight transition-all duration-200 active:scale-[0.98] disabled:opacity-50 select-none cursor-pointer focus:outline-none';
+      const sz = size === 'sm' ? 'text-xs px-3.5 py-2 rounded-xl gap-1.5' : size === 'lg' ? 'text-base px-6 py-3.5 rounded-2xl gap-2.5 font-semibold' : 'text-sm px-5 py-3 rounded-2xl gap-2';
+      const vr = variant === 'primary' 
+        ? 'bg-black text-white hover:bg-zinc-800 shadow-sm border border-black' 
+        : variant === 'secondary' 
+        ? 'bg-zinc-100 text-zinc-900 hover:bg-zinc-200 border border-zinc-200/60' 
+        : 'bg-transparent text-zinc-900 border border-zinc-300 hover:bg-zinc-50';
+      const w = fullWidth ? 'w-full' : '';
+
+      return (
+        <button type={type} onClick={onClick} disabled={disabled || isLoading} className={`${base} ${sz} ${vr} ${w} ${className}`}>
+          {isLoading ? (
+            <span className="flex items-center gap-2">
+              <span className="w-4 h-4 border-2 border-zinc-300 border-t-white rounded-full animate-spin"></span>
+              <span>Memuat...</span>
+            </span>
+          ) : (
+            <>
+              {leftIcon && <span className="shrink-0">{leftIcon}</span>}
+              <span>{children}</span>
+              {rightIcon && <span className="shrink-0">{rightIcon}</span>}
+            </>
+          )}
+        </button>
+      );
+    };
+
+    const Card = ({ children, padding = 'md', className = '', onClick, interactive = false }) => {
+      const pad = padding === 'lg' ? 'p-6 sm:p-7' : padding === 'sm' ? 'p-4' : padding === 'none' ? 'p-0' : 'p-5 sm:p-6';
+      const inter = interactive ? 'cursor-pointer hover:border-zinc-300 hover:shadow-[0_6px_20px_-4px_rgba(0,0,0,0.06)] active:scale-[0.99]' : '';
+      return (
+        <div onClick={onClick} className={`bg-white rounded-[20px] border border-zinc-200/80 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.03)] transition-all duration-200 ${pad} ${inter} ${className}`}>
+          {children}
+        </div>
+      );
+    };
+
+    const ProgressBar = ({ value, max = 100, size = 'sm' }) => {
+      const pct = Math.min(100, Math.max(0, Math.round((value / max) * 100)));
+      const h = size === 'md' ? 'h-3' : 'h-2.5';
+      return (
+        <div className={`w-full bg-zinc-100 rounded-full ${h} overflow-hidden`}>
+          <div className="bg-black h-full rounded-full transition-all duration-300 ease-out" style={{ width: `${pct}%` }} />
+        </div>
+      );
+    };
+
+    const Toast = ({ message, isVisible, onClose }) => {
+      useEffect(() => {
+        if (isVisible) {
+          const t = setTimeout(onClose, 2200);
+          return () => clearTimeout(t);
+        }
+      }, [isVisible, onClose]);
+
+      if (!isVisible) return null;
+
+      return (
+        <div className="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-slide-up">
+          <div className="bg-black text-white px-4 py-2.5 rounded-full shadow-lg flex items-center gap-2 border border-zinc-800 text-xs font-semibold tracking-tight">
+            <div className="w-4 h-4 rounded-full bg-zinc-800 flex items-center justify-center text-white">
+              <Icon name="Check" size={11} strokeWidth={3} />
+            </div>
+            <span>{message}</span>
+          </div>
+        </div>
+      );
+    };
+
+    const AccordionCard = ({ title, badge, isCompleted, onToggleComplete, children, defaultExpanded = false }) => {
+      const [expanded, setExpanded] = useState(defaultExpanded);
+
+      return (
+        <Card padding="none" className={`overflow-hidden transition-all duration-200 ${isCompleted ? 'border-zinc-300 bg-zinc-50/50' : 'border-zinc-200/80 bg-white'}`}>
+          <div
+            onClick={() => setExpanded(!expanded)}
+            className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left cursor-pointer select-none hover:bg-zinc-50/80 transition-colors"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleComplete && onToggleComplete();
+                }}
+                className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-all duration-150 shrink-0 ${
+                  isCompleted ? 'bg-black border-black text-white' : 'bg-white border-zinc-300 hover:border-zinc-500'
+                }`}
+              >
+                {isCompleted && <Icon name="Check" size={14} strokeWidth={3} className="text-white" />}
+              </button>
+
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`text-sm sm:text-base font-bold tracking-tight ${isCompleted ? 'line-through text-zinc-400' : 'text-zinc-900'}`}>
+                    {title}
+                  </span>
+                  {badge && (
+                    <span className="text-[10px] font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-full border border-zinc-200/60 shrink-0">
+                      {badge}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className={`w-7 h-7 rounded-xl bg-zinc-100/70 flex items-center justify-center text-zinc-500 transition-transform duration-200 shrink-0 ${expanded ? 'rotate-180 text-zinc-900 bg-zinc-200' : ''}`}>
+              <Icon name="ChevronDown" size={16} />
+            </div>
+          </div>
+
+          {expanded && (
+            <div className="px-4 pb-5 sm:px-5 sm:pb-6 pt-1 border-t border-zinc-100 animate-fade">
+              {children}
+            </div>
+          )}
+        </Card>
+      );
+    };
+
+    // --- Main Application Component ---
+    function MainApp() {
+      const [currentView, setCurrentView] = useState('splash'); // 'splash', 'login', 'dashboard', 'inspirasi', 'menulis', 'ai', 'profil'
+      
+      // Inspirasi Sub-state
+      const [selectedInspirasiCategoryId, setSelectedInspirasiCategoryId] = useState(null);
+      const [inspirasiSearch, setInspirasiSearch] = useState('');
+      const [showOnlyFavs, setShowOnlyFavs] = useState(false);
+
+      // Workspace Sub-state (Sprint 3)
+      const [workspaceSubView, setWorkspaceSubView] = useState(null);
+
+      // Writing Assistant Sub-state (Sprint 4)
+      const [selectedAiCategoryId, setSelectedAiCategoryId] = useState(null);
+      const [aiSearchQuery, setAiSearchQuery] = useState('');
+      const [showOnlyAiFavorites, setShowOnlyAiFavorites] = useState(false);
+
+      // Blueprint progress state
+      const [completedDays, setCompletedDays] = useState(() => {
+        try {
+          const s = localStorage.getItem('penulis_plus_blueprint');
+          return s ? JSON.parse(s) : [];
+        } catch { return []; }
+      });
+
+      // Workbook state
+      const [workbookContent, setWorkbookContent] = useState(() => {
+        return localStorage.getItem('penulis_plus_workbook') || '';
+      });
+
+      // Template outline selected
+      const [selectedOutlineId, setSelectedOutlineId] = useState('outline-500');
+
+      // Editor Menulis state
+      const [draftTitle, setDraftTitle] = useState(() => localStorage.getItem('penulis_plus_draft_title') || '');
+      const [draftContent, setDraftContent] = useState(() => localStorage.getItem('penulis_plus_draft_content') || '');
+      const [draftTarget, setDraftTarget] = useState(() => {
+        const s = localStorage.getItem('penulis_plus_draft_target');
+        return s ? parseInt(s, 10) : 500;
+      });
+      const [draftLastSaved, setDraftLastSaved] = useState(() => localStorage.getItem('penulis_plus_draft_saved_at') || 'Baru saja');
+
+      // User state
+      const [user, setUser] = useState(() => {
+        const name = localStorage.getItem('penulis_plus_name') || '';
+        const loggedIn = localStorage.getItem('penulis_plus_logged_in') === 'true';
+        const remember = localStorage.getItem('penulis_plus_remember_device') !== 'false';
+        return { name, isLoggedIn: loggedIn, rememberDevice: remember };
+      });
+
+      // Favorites state (Inspirasi)
+      const [favorites, setFavorites] = useState(() => {
+        try {
+          const saved = localStorage.getItem('penulis_plus_favorites');
+          return saved ? JSON.parse(saved) : [];
+        } catch { return []; }
+      });
+
+      // AI Favorites state (Sprint 4)
+      const [aiFavorites, setAiFavorites] = useState(() => {
+        try {
+          const saved = localStorage.getItem('penulis_plus_ai_favorites');
+          return saved ? JSON.parse(saved) : [];
+        } catch { return []; }
+      });
+
+      // Toast feedback
+      const [toastMsg, setToastMsg] = useState('');
+      const [isToastOpen, setIsToastOpen] = useState(false);
+
+      // Login form inputs
+      const [loginName, setLoginName] = useState(user.name || '');
+      const [passwordWorkspace, setPasswordWorkspace] = useState('');
+      const [showPassword, setShowPassword] = useState(false);
+      const [rememberMe, setRememberMe] = useState(user.rememberDevice);
+      const [loginError, setLoginError] = useState('');
+      const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+      // Profil sub-state
+      const [isEditingProfileName, setIsEditingProfileName] = useState(false);
+      const [profileTempName, setProfileTempName] = useState(user.name || '');
+      const [profileActiveModal, setProfileActiveModal] = useState(null); // 'about' | 'privacy' | 'password'
+
+      const handleSaveProfileName = (e) => {
+        e.preventDefault();
+        const trimmed = profileTempName.trim();
+        if (!trimmed) {
+          showToast('Nama tidak boleh kosong');
+          return;
+        }
+        localStorage.setItem('penulis_plus_name', trimmed);
+        setUser(prev => ({ ...prev, name: trimmed }));
+        setLoginName(trimmed);
+        setIsEditingProfileName(false);
+        showToast('Nama profil berhasil diperbarui');
+      };
+
+      // Sync Blueprint
+      useEffect(() => {
+        try { localStorage.setItem('penulis_plus_blueprint', JSON.stringify(completedDays)); } catch {}
+      }, [completedDays]);
+
+      // Sync Inspirasi Favorites
+      useEffect(() => {
+        try { localStorage.setItem('penulis_plus_favorites', JSON.stringify(favorites)); } catch {}
+      }, [favorites]);
+
+      // Sync AI Favorites (Sprint 4)
+      useEffect(() => {
+        try { localStorage.setItem('penulis_plus_ai_favorites', JSON.stringify(aiFavorites)); } catch {}
+      }, [aiFavorites]);
+
+      // Splash redirect
+      useEffect(() => {
+        const timer = setTimeout(() => {
+          if (user.isLoggedIn) setCurrentView('dashboard');
+          else setCurrentView('login');
+        }, 1100);
+        return () => clearTimeout(timer);
+      }, []);
+
+      const showToast = (msg) => {
+        setToastMsg(msg);
+        setIsToastOpen(true);
+      };
+
+      const copyText = async (text, msg = 'Berhasil disalin') => {
+        try {
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+          } else {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+          }
+          showToast(msg);
+        } catch {
+          showToast('Gagal menyalin');
+        }
+      };
+
+      const toggleAiFavorite = (id) => {
+        setAiFavorites(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
+      };
+
+      // Filtered AI Prompts
+      const filteredAiPrompts = useMemo(() => {
+        return AI_PROMPT_ITEMS.filter((item) => {
+          if (selectedAiCategoryId && item.categoryId !== selectedAiCategoryId) return false;
+          if (showOnlyAiFavorites && !aiFavorites.includes(item.id)) return false;
+          if (!aiSearchQuery.trim()) return true;
+          const q = aiSearchQuery.trim().toLowerCase();
+          return item.title.toLowerCase().includes(q) || item.description.toLowerCase().includes(q) || item.promptText.toLowerCase().includes(q) || (item.tag && item.tag.toLowerCase().includes(q));
+        });
+      }, [selectedAiCategoryId, showOnlyAiFavorites, aiSearchQuery, aiFavorites]);
+
+      // Workbook auto-save
+      const wbTimer = useRef(null);
+      const handleWorkbookChange = (val) => {
+        setWorkbookContent(val);
+        if (wbTimer.current) clearTimeout(wbTimer.current);
+        wbTimer.current = setTimeout(() => {
+          localStorage.setItem('penulis_plus_workbook', val);
+          showToast('Tersimpan otomatis');
+        }, 800);
+      };
+
+      // Editor auto-save
+      const edTimer = useRef(null);
+      const saveEditorDraft = (t, c, targetVal) => {
+        try {
+          localStorage.setItem('penulis_plus_draft_title', t);
+          localStorage.setItem('penulis_plus_draft_content', c);
+          localStorage.setItem('penulis_plus_draft_target', targetVal.toString());
+          const now = new Date();
+          const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+          localStorage.setItem('penulis_plus_draft_saved_at', timeStr);
+          setDraftLastSaved(timeStr);
+        } catch (e) {}
+      };
+
+      const handleEditorTitleChange = (val) => {
+        setDraftTitle(val);
+        if (edTimer.current) clearTimeout(edTimer.current);
+        edTimer.current = setTimeout(() => {
+          saveEditorDraft(val, draftContent, draftTarget);
+          showToast('Tersimpan otomatis');
+        }, 1000);
+      };
+
+      const handleEditorContentChange = (val) => {
+        setDraftContent(val);
+        if (edTimer.current) clearTimeout(edTimer.current);
+        edTimer.current = setTimeout(() => {
+          saveEditorDraft(draftTitle, val, draftTarget);
+          showToast('Tersimpan otomatis');
+        }, 1000);
+      };
+
+      const handleTargetChange = (targetVal) => {
+        setDraftTarget(targetVal);
+        saveEditorDraft(draftTitle, draftContent, targetVal);
+      };
+
+      // Editor Metrics
+      const editorWordCount = useMemo(() => {
+        const trimmed = draftContent.trim();
+        return trimmed ? trimmed.split(/\s+/).length : 0;
+      }, [draftContent]);
+
+      const editorCharCount = useMemo(() => draftContent.length, [draftContent]);
+      const editorReadingTime = useMemo(() => Math.max(1, Math.ceil(editorWordCount / 200)), [editorWordCount]);
+      const editorProgressPct = useMemo(() => {
+        if (!draftTarget) return 0;
+        return Math.min(100, Math.round((editorWordCount / draftTarget) * 100));
+      }, [editorWordCount, draftTarget]);
+
+      const activeOutline = useMemo(() => {
+        return OUTLINE_TEMPLATES.find((o) => o.id === selectedOutlineId) || OUTLINE_TEMPLATES[0];
+      }, [selectedOutlineId]);
+
+      // Login handler
+      const handleLogin = (e) => {
+        e.preventDefault();
+        setLoginError('');
+        if (!loginName.trim()) { setLoginError('Silakan masukkan nama Anda.'); return; }
+        if (!passwordWorkspace.trim()) { setLoginError('Silakan masukkan Password Workspace.'); return; }
+
+        setIsLoggingIn(true);
+        setTimeout(() => {
+          const trimmed = loginName.trim();
+          localStorage.setItem('penulis_plus_logged_in', 'true');
+          localStorage.setItem('penulis_plus_name', trimmed);
+          localStorage.setItem('penulis_plus_remember_device', rememberMe ? 'true' : 'false');
+          setUser({ name: trimmed, isLoggedIn: true, rememberDevice: rememberMe });
+          setIsLoggingIn(false);
+          setCurrentView('dashboard');
+        }, 300);
+      };
+
+      const handleLogout = () => {
+        localStorage.setItem('penulis_plus_logged_in', 'false');
+        if (!user.rememberDevice) {
+          localStorage.removeItem('penulis_plus_name');
+          setLoginName('');
+        }
+        setUser((prev) => ({ ...prev, isLoggedIn: false }));
+        setCurrentView('login');
+      };
+
+      // Navigation Items (Sprint 4: AI is now active Asisten Menulis)
+      const navTabs = [
+        { id: 'dashboard', label: 'Beranda', icon: 'Home' },
+        { id: 'inspirasi', label: 'Inspirasi', icon: 'Sparkles' },
+        { id: 'menulis', label: 'Workspace', icon: 'PenLine' },
+        { id: 'ai', label: 'Asisten AI', icon: 'Bot' },
+        { id: 'profil', label: 'Profil', icon: 'User' },
+      ];
+
+      // Splash View
+      if (currentView === 'splash') {
+        return (
+          <div className="fixed inset-0 bg-[#F7F7F8] flex flex-col items-center justify-between p-8 animate-fade">
+            <div />
+            <div className="flex flex-col items-center text-center">
+              <Logo size="xl" />
+              <div className="mt-5 space-y-1">
+                <h1 className="text-xl font-bold tracking-tight text-zinc-900">Penulis+ Workspace</h1>
+                <p className="text-xs text-zinc-500 font-medium">Ruang Kerja Penulis Antologi</p>
+              </div>
+              <div className="mt-8 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-zinc-900 animate-pulse"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-pulse"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 animate-pulse"></span>
+              </div>
+            </div>
+            <p className="text-[11px] font-semibold text-zinc-400 tracking-wider uppercase">by Ranah Menulis</p>
+          </div>
+        );
+      }
+
+      // Login View
+      if (currentView === 'login') {
+        return (
+          <div className="min-h-screen bg-[#F7F7F8] flex flex-col justify-between items-center px-4 py-8 sm:py-12 animate-fade">
+            <div />
+            <div className="w-full max-w-md mx-auto">
+              <div className="bg-white rounded-[24px] border border-zinc-200/80 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] p-7 sm:p-9 text-center">
+                <div className="mb-6 flex justify-center"><Logo size="lg" /></div>
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 leading-tight">
+                  Penulis+ Workspace
+                </h1>
+                <div className="mt-3 text-xs sm:text-sm text-zinc-500 font-medium leading-relaxed tracking-tight">
+                  <p>Temukan Ide.</p>
+                  <p>Tulis Cerita.</p>
+                  <p>Selesaikan Naskah.</p>
+                </div>
+
+                {loginError && (
+                  <div className="mt-5 p-3 rounded-2xl bg-zinc-50 border border-zinc-300 text-xs font-medium text-zinc-900 text-left">
+                    {loginError}
+                  </div>
+                )}
+
+                <form onSubmit={handleLogin} className="mt-7 space-y-4 text-left">
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-2">Nama</label>
+                    <div className="relative flex items-center">
+                      <div className="absolute left-4 text-zinc-400"><Icon name="User" size={18} /></div>
+                      <input
+                        type="text"
+                        placeholder="Masukkan nama Anda"
+                        value={loginName}
+                        onChange={(e) => setLoginName(e.target.value)}
+                        className="w-full bg-white text-zinc-900 text-sm font-medium rounded-2xl border border-zinc-200 pl-11 pr-4 py-3.5 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-2">Password Workspace</label>
+                    <div className="relative flex items-center">
+                      <div className="absolute left-4 text-zinc-400"><Icon name="Lock" size={18} /></div>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Masukkan password workspace"
+                        value={passwordWorkspace}
+                        onChange={(e) => setPasswordWorkspace(e.target.value)}
+                        className="w-full bg-white text-zinc-900 text-sm font-medium rounded-2xl border border-zinc-200 pl-11 pr-12 py-3.5 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
+                        required
+                      />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 p-1 text-zinc-400 hover:text-zinc-800">
+                        <Icon name={showPassword ? 'EyeOff' : 'Eye'} size={18} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="pt-1.5 pb-2">
+                    <label className="inline-flex items-center gap-3 cursor-pointer select-none text-xs sm:text-sm text-zinc-700 font-medium">
+                      <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="sr-only" />
+                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${rememberMe ? 'bg-black border-black text-white' : 'bg-white border-zinc-300'}`}>
+                        {rememberMe && <Icon name="Check" size={13} className="text-white" strokeWidth={3} />}
+                      </div>
+                      <span>Remember this device</span>
+                    </label>
+                  </div>
+
+                  <Button type="submit" variant="primary" size="lg" fullWidth isLoading={isLoggingIn} rightIcon={<Icon name="ArrowRight" size={18} className="text-white" />} className="mt-2">
+                    Masuk
+                  </Button>
+                </form>
+              </div>
+            </div>
+            <footer className="w-full text-center py-4">
+              <p className="text-xs font-semibold text-zinc-400 tracking-wider uppercase">by Ranah Menulis</p>
+            </footer>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen bg-[#F7F7F8] flex">
+          {/* Toast Notification */}
+          <Toast message={toastMsg} isVisible={isToastOpen} onClose={() => setIsToastOpen(false)} />
+
+          {/* Desktop Sidebar */}
+          <aside className="hidden md:flex flex-col w-64 lg:w-72 bg-white border-r border-zinc-200/80 min-h-screen sticky top-0 shrink-0 select-none">
+            <div className="p-6 border-b border-zinc-100 flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-black flex items-center justify-center text-white shadow-sm shrink-0">
+                <span className="font-bold text-sm">P+</span>
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-zinc-900 tracking-tight leading-none truncate">Penulis+ Workspace</h2>
+                <p className="text-[11px] text-zinc-400 font-medium tracking-wide uppercase mt-1 truncate">by Ranah Menulis</p>
+              </div>
+            </div>
+
+            <div className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto no-scrollbar">
+              <div className="px-3 pb-2 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                Navigasi Workspace
+              </div>
+
+              {navTabs.map((item) => {
+                const isActive = currentView === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setCurrentView(item.id);
+                      if (item.id === 'menulis') setWorkspaceSubView(null);
+                      if (item.id === 'inspirasi') { setSelectedInspirasiCategoryId(null); setInspirasiSearch(''); }
+                      if (item.id === 'ai') { setSelectedAiCategoryId(null); setAiSearchQuery(''); setShowOnlyAiFavorites(false); }
+                    }}
+                    className={`w-full flex items-center gap-3.5 px-3.5 py-3 rounded-2xl text-left transition-all duration-200 focus:outline-none ${
+                      isActive ? 'bg-zinc-900 text-white font-medium shadow-sm' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/80'
+                    }`}
+                  >
+                    <div className={`p-1.5 rounded-xl ${isActive ? 'text-white' : 'text-zinc-500'}`}>
+                      <Icon name={item.icon} size={18} />
+                    </div>
+                    <span className="text-sm font-semibold tracking-tight">{item.label}</span>
+                  </button>
+                );
+              })}
+
+              <div className="pt-6 px-1">
+                <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200/60">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-zinc-900 mb-1">
+                    <Icon name="Sparkles" size={14} className="text-zinc-700" />
+                    <span>Toolkit Prompt AI</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-500 leading-relaxed">
+                    9 kategori & 45 prompt teruji untuk mempercepat penulisan naskahmu.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-zinc-100 bg-white">
+              <div className="flex items-center justify-between p-2 rounded-2xl hover:bg-zinc-50">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-900 font-bold text-xs shrink-0">
+                    {user.name ? user.name.slice(0, 2).toUpperCase() : 'P'}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-zinc-900 truncate">{user.name}</div>
+                    <div className="text-[10px] text-zinc-400 truncate">Aktif • Workspace</div>
+                  </div>
+                </div>
+                <button onClick={handleLogout} className="p-2 rounded-xl text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200/60" title="Keluar">
+                  <Icon name="LogOut" size={16} />
+                </button>
+              </div>
+            </div>
+          </aside>
+
+          {/* Main View Container */}
+          <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+            {/* Header */}
+            <header className="sticky top-0 z-30 bg-[#F7F7F8]/90 backdrop-blur-md border-b border-zinc-200/60 pt-safe">
+              <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-black flex items-center justify-center text-white md:hidden">
+                    <span className="font-bold text-xs">P+</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm sm:text-base font-bold tracking-tight text-zinc-900">Penulis+</span>
+                    <span className="text-[11px] font-medium text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded-full border border-zinc-200/60">
+                      Workspace
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-zinc-200/80 text-[11px] font-medium text-zinc-600">
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-800 animate-pulse"></span>
+                    <span>Online Workspace</span>
+                  </div>
+                  <div className="w-8 h-8 rounded-xl bg-zinc-200 flex items-center justify-center text-zinc-900 font-bold text-xs">
+                    {user.name ? user.name.slice(0, 2).toUpperCase() : 'P'}
+                  </div>
+                  <button onClick={handleLogout} className="p-2 rounded-xl text-zinc-400 hover:text-zinc-900" title="Keluar">
+                    <Icon name="LogOut" size={17} />
+                  </button>
+                </div>
+              </div>
+            </header>
+
+            {/* Page Content */}
+            <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-12 animate-fade">
+              
+              {/* ========================================================================= */}
+              {/* 1. DASHBOARD VIEW */}
+              {/* ========================================================================= */}
+              {currentView === 'dashboard' && (
+                <div className="space-y-6 sm:space-y-8">
+                  <section className="space-y-1">
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 leading-tight">
+                      Halo, {user.name || 'Penulis'} 👋
+                    </h1>
+                    <p className="text-sm sm:text-base text-zinc-500 font-medium">Selamat datang kembali.</p>
+                  </section>
+
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6">
+                    <div className="md:col-span-7 flex flex-col">
+                      <Card padding="lg" className="flex-1 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center text-zinc-800">
+                                <Icon name="BookmarkCheck" size={17} />
+                              </div>
+                              <div>
+                                <h2 className="text-base font-bold text-zinc-900 tracking-tight leading-none">Progress Workspace</h2>
+                                <p className="text-xs text-zinc-500 font-medium mt-1">Naskah Antologi Utama</p>
+                              </div>
+                            </div>
+                            <span className="text-xs font-semibold text-zinc-600 bg-zinc-100 px-2.5 py-1 rounded-full border border-zinc-200/60">
+                              {editorWordCount} / {draftTarget} Kata
+                            </span>
+                          </div>
+
+                          <div className="mt-4 p-4 rounded-2xl bg-zinc-50 border border-zinc-200/50 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-zinc-800 truncate">
+                                {draftTitle || 'Draf Naskah Aktif'}
+                              </span>
+                              <span className="text-xs font-bold text-zinc-900 ml-2">{editorProgressPct}%</span>
+                            </div>
+                            <ProgressBar value={editorWordCount} max={draftTarget} />
+                          </div>
+                        </div>
+
+                        <div className="mt-5 pt-4 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-500">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <Icon name="FileText" size={14} className="text-zinc-400" />
+                            Tersimpan {draftLastSaved}
+                          </span>
+                          <span className="font-semibold text-zinc-800">Target: {draftTarget} Kata</span>
+                        </div>
+                      </Card>
+                    </div>
+
+                    <div className="md:col-span-5 flex flex-col">
+                      <Card padding="lg" className="flex-1 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center text-zinc-800">
+                                <Icon name="Target" size={17} />
+                              </div>
+                              <div>
+                                <h2 className="text-base font-bold text-zinc-900 tracking-tight leading-none">Blueprint Progress</h2>
+                                <p className="text-xs text-zinc-500 font-medium mt-1">Tantangan 10 Hari</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 text-xs font-semibold text-zinc-700 bg-zinc-100 px-2.5 py-1 rounded-full border border-zinc-200/60">
+                              <span>{completedDays.length}/10 Hari</span>
+                            </div>
+                          </div>
+
+                          <div className="mt-2 py-4 px-5 rounded-2xl bg-black text-white text-center shadow-sm">
+                            <div className="text-3xl font-extrabold tracking-tight">
+                              {Math.round((completedDays.length / 10) * 100)}%
+                            </div>
+                            <div className="mt-2 text-xs text-zinc-300 font-medium">
+                              {completedDays.length === 10 ? 'Semua tahapan blueprint selesai!' : `${10 - completedDays.length} langkah tersisa menuju naskah final`}
+                            </div>
+                            <div className="mt-3">
+                              <div className="w-full bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                                <div className="bg-white h-full rounded-full" style={{ width: `${(completedDays.length / 10) * 100}%` }} />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <p className="mt-4 text-[11px] text-zinc-400 text-center font-medium">
+                          Konsistensi kecil melahirkan karya besar.
+                        </p>
+                      </Card>
+                    </div>
+                  </div>
+
+                  <section className="pt-1">
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      fullWidth
+                      onClick={() => {
+                        setCurrentView('menulis');
+                        setWorkspaceSubView('editor');
+                      }}
+                      leftIcon={<Icon name="PenLine" size={20} className="text-white" />}
+                      rightIcon={<Icon name="ChevronRight" size={18} className="text-white" />}
+                      className="py-4 rounded-2xl shadow-sm text-base font-semibold"
+                    >
+                      Buka Editor Menulis
+                    </Button>
+                  </section>
+                </div>
+              )}
+
+              {/* ========================================================================= */}
+              {/* 2. INSPIRASI VIEW (Sprint 2) */}
+              {/* ========================================================================= */}
+              {currentView === 'inspirasi' && (
+                <div className="space-y-6 sm:space-y-8 animate-fade">
+                  {!selectedInspirasiCategoryId ? (
+                    <section className="space-y-1 pt-1 sm:pt-2">
+                      <div className="flex items-center justify-between">
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 leading-tight">Inspirasi</h1>
+                        {favorites.length > 0 && (
+                          <button
+                            onClick={() => setShowOnlyFavs(!showOnlyFavs)}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                              showOnlyFavs ? 'bg-black text-white border-black' : 'bg-white text-zinc-700 border-zinc-200 hover:border-zinc-300'
+                            }`}
+                          >
+                            <Icon name="Heart" size={13} fill={showOnlyFavs ? '#FFFFFF' : 'none'} />
+                            <span>Tersimpan ({favorites.length})</span>
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-sm sm:text-base text-zinc-500 font-medium">Temukan ide sebelum mulai menulis.</p>
+                    </section>
+                  ) : (
+                    <section className="space-y-3 pt-1 sm:pt-2">
+                      <button
+                        onClick={() => { setSelectedInspirasiCategoryId(null); setInspirasiSearch(''); }}
+                        className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-600 hover:text-black transition-colors group"
+                      >
+                        <Icon name="ArrowLeft" size={16} className="group-hover:-translate-x-0.5 transition-transform" />
+                        <span>Kembali ke Kategori Inspirasi</span>
+                      </button>
+                      <div>
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 leading-tight">
+                          {INSPIRATION_CATEGORIES.find(c => c.id === selectedInspirasiCategoryId)?.title}
+                        </h1>
+                        <p className="text-sm text-zinc-500 font-medium mt-0.5">
+                          {INSPIRATION_CATEGORIES.find(c => c.id === selectedInspirasiCategoryId)?.shortDescription}
+                        </p>
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Search Bar */}
+                  <div className="relative flex items-center">
+                    <div className="absolute left-4 text-zinc-400"><Icon name="Search" size={18} /></div>
+                    <input
+                      type="text"
+                      placeholder={selectedInspirasiCategoryId ? 'Cari dalam kategori ini...' : 'Cari ide cerita, judul, diksi, atau pembuka...'}
+                      value={inspirasiSearch}
+                      onChange={(e) => setInspirasiSearch(e.target.value)}
+                      className="w-full bg-white text-zinc-900 text-sm font-medium rounded-2xl border border-zinc-200/90 pl-11 pr-10 py-3.5 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
+                    />
+                    {inspirasiSearch && (
+                      <button onClick={() => setInspirasiSearch('')} className="absolute right-3.5 p-1 text-zinc-400 hover:text-zinc-700">
+                        <Icon name="X" size={16} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Category Grid or Item List */}
+                  {!selectedInspirasiCategoryId && !inspirasiSearch && !showOnlyFavs ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
+                      {INSPIRATION_CATEGORIES.map((category) => (
+                        <Card
+                          key={category.id}
+                          padding="md"
+                          interactive
+                          onClick={() => { setSelectedInspirasiCategoryId(category.id); setInspirasiSearch(''); }}
+                          className="group flex items-center justify-between gap-4 select-none"
+                        >
+                          <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
+                            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center text-zinc-800 shrink-0 group-hover:bg-zinc-900 group-hover:text-white transition-colors duration-200">
+                              <Icon name={category.iconName} size={19} />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h3 className="text-sm sm:text-base font-bold text-zinc-900 tracking-tight leading-snug truncate">{category.title}</h3>
+                                <span className="text-[10px] font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-full border border-zinc-200/50">{category.itemCount} ide</span>
+                              </div>
+                              <p className="text-xs text-zinc-500 font-medium line-clamp-1 mt-0.5">{category.shortDescription}</p>
+                            </div>
+                          </div>
+                          <div className="w-8 h-8 rounded-xl bg-zinc-50 group-hover:bg-zinc-100 flex items-center justify-center text-zinc-400 group-hover:text-zinc-900 shrink-0">
+                            <Icon name="ChevronRight" size={17} />
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {INSPIRATION_ITEMS
+                        .filter(item => {
+                          if (selectedInspirasiCategoryId && item.category !== selectedInspirasiCategoryId) return false;
+                          if (showOnlyFavs && !favorites.includes(item.id)) return false;
+                          if (!inspirasiSearch.trim()) return true;
+                          const q = inspirasiSearch.trim().toLowerCase();
+                          return item.content.toLowerCase().includes(q) || (item.tag && item.tag.toLowerCase().includes(q));
+                        })
+                        .map(item => {
+                          const isFav = favorites.includes(item.id);
+                          return (
+                            <Card key={item.id} padding="md" className="flex flex-col justify-between space-y-4">
+                              <div className="space-y-2">
+                                {item.tag && <span className="inline-block text-[10px] font-semibold text-zinc-600 bg-zinc-100 px-2.5 py-0.5 rounded-full border border-zinc-200/60">{item.tag}</span>}
+                                <p className="text-sm sm:text-base font-medium text-zinc-900 leading-relaxed">{item.content}</p>
+                                {item.context && <p className="text-xs text-zinc-500 italic">{item.context}</p>}
+                              </div>
+                              <div className="pt-3 border-t border-zinc-100 flex items-center justify-between">
+                                <button
+                                  onClick={() => copyText(item.content)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-zinc-100 text-zinc-700 hover:bg-zinc-200 border border-zinc-200/60 active:scale-95"
+                                >
+                                  <Icon name="Copy" size={13} />
+                                  <span>Salin</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setFavorites(prev => prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id]);
+                                  }}
+                                  className={`p-2 rounded-xl flex items-center gap-1.5 text-xs font-medium ${isFav ? 'text-black bg-zinc-100' : 'text-zinc-400 hover:text-zinc-800'}`}
+                                >
+                                  <Icon name="Heart" size={16} fill={isFav ? '#0A0A0A' : 'none'} strokeWidth={isFav ? 0 : 2} />
+                                  <span className="hidden sm:inline">{isFav ? 'Tersimpan' : 'Favorit'}</span>
+                                </button>
+                              </div>
+                            </Card>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ========================================================================= */}
+              {/* 3. WORKSPACE / MENULIS VIEW (Sprint 3) */}
+              {/* ========================================================================= */}
+              {currentView === 'menulis' && (
+                <div className="space-y-6 sm:space-y-8 animate-fade">
+                  {!workspaceSubView && (
+                    <div className="space-y-6 sm:space-y-8">
+                      <section className="space-y-1 pt-1 sm:pt-2">
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 leading-tight">Workspace</h1>
+                        <p className="text-sm sm:text-base text-zinc-500 font-medium">Semua kebutuhan menulismu ada di sini.</p>
+                      </section>
+
+                      <Card padding="md" className="bg-zinc-900 text-white border-black">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Draf Aktif</span>
+                            </div>
+                            <h3 className="text-base font-bold text-white tracking-tight">{draftTitle || 'Naskah Tanpa Judul'}</h3>
+                            <p className="text-xs text-zinc-400">{editorWordCount} kata • Target {draftTarget} kata ({editorProgressPct}%)</p>
+                          </div>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setWorkspaceSubView('editor')}
+                            leftIcon={<Icon name="PenTool" size={14} />}
+                            className="bg-white text-black hover:bg-zinc-100 font-semibold self-start sm:self-auto"
+                          >
+                            Buka Editor
+                          </Button>
+                        </div>
+                      </Card>
+
+                      <section className="space-y-3 sm:space-y-4">
+                        <div className="flex items-center justify-between px-1">
+                          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Fitur Ruang Tulis</span>
+                          <span className="text-xs font-medium text-zinc-400">6 Modul Workspace</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
+                          {WORKSPACE_FEATURES.map((feature) => (
+                            <Card
+                              key={feature.id}
+                              padding="md"
+                              interactive
+                              onClick={() => setWorkspaceSubView(feature.id)}
+                              className="group flex items-center justify-between gap-4 select-none"
+                            >
+                              <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
+                                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center text-zinc-800 shrink-0 group-hover:bg-zinc-900 group-hover:text-white transition-colors duration-200">
+                                  <Icon name={feature.iconName} size={19} />
+                                </div>
+                                <div className="min-w-0">
+                                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 tracking-tight leading-snug truncate">{feature.title}</h3>
+                                  <p className="text-xs text-zinc-500 font-medium line-clamp-1 mt-0.5">{feature.shortDescription}</p>
+                                </div>
+                              </div>
+                              <div className="w-8 h-8 rounded-xl bg-zinc-50 group-hover:bg-zinc-100 flex items-center justify-center text-zinc-400 group-hover:text-zinc-900 shrink-0">
+                                <Icon name="ChevronRight" size={17} />
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                      </section>
+                    </div>
+                  )}
+
+                  {/* Subviews */}
+                  {workspaceSubView === 'blueprint' && (
+                    <div className="space-y-6 sm:space-y-8 animate-fade">
+                      <section className="space-y-3 pt-1 sm:pt-2">
+                        <button onClick={() => setWorkspaceSubView(null)} className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-600 hover:text-black">
+                          <Icon name="ArrowLeft" size={16} />
+                          <span>Kembali ke Workspace</span>
+                        </button>
+                        <div className="flex items-center justify-between">
+                          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900">Blueprint 10 Hari</h1>
+                          {completedDays.length > 0 && (
+                            <button onClick={() => { if (window.confirm('Reset progress?')) setCompletedDays([]); }} className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-800">
+                              <Icon name="RotateCcw" size={13} />
+                              <span>Reset</span>
+                            </button>
+                          )}
+                        </div>
+                      </section>
+                      <Card padding="md" className="space-y-3 bg-zinc-50 border-zinc-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-zinc-900">Progress: {completedDays.length}/10 Hari Selesai</span>
+                          <span className="text-xs font-extrabold text-zinc-900">{Math.round((completedDays.length / 10) * 100)}%</span>
+                        </div>
+                        <ProgressBar value={completedDays.length} max={10} size="md" />
+                      </Card>
+                      <div className="space-y-3">
+                        {BLUEPRINT_DAYS.map((dayItem) => {
+                          const isDone = completedDays.includes(dayItem.day);
+                          return (
+                            <AccordionCard
+                              key={dayItem.day}
+                              title={dayItem.title}
+                              badge={isDone ? 'Selesai' : `Hari ke-${dayItem.day}`}
+                              isCompleted={isDone}
+                              onToggleComplete={() => setCompletedDays(prev => prev.includes(dayItem.day) ? prev.filter(d => d !== dayItem.day) : [...prev, dayItem.day])}
+                              defaultExpanded={dayItem.day === 1 || completedDays.length === dayItem.day - 1}
+                            >
+                              <div className="space-y-3 text-xs sm:text-sm text-zinc-700">
+                                <p>{dayItem.description}</p>
+                                <div className="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200/60 font-medium text-zinc-900">Tugas: {dayItem.task}</div>
+                                <div className="pt-2 flex justify-end">
+                                  <Button variant={isDone ? 'secondary' : 'primary'} size="sm" onClick={() => setCompletedDays(prev => prev.includes(dayItem.day) ? prev.filter(d => d !== dayItem.day) : [...prev, dayItem.day])}>
+                                    {isDone ? 'Tandai Belum Selesai' : 'Tandai Selesai'}
+                                  </Button>
+                                </div>
+                              </div>
+                            </AccordionCard>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {workspaceSubView === 'workbook' && (
+                    <div className="space-y-6 sm:space-y-8 animate-fade">
+                      <section className="space-y-3 pt-1 sm:pt-2">
+                        <button onClick={() => setWorkspaceSubView(null)} className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-600 hover:text-black">
+                          <Icon name="ArrowLeft" size={16} />
+                          <span>Kembali ke Workspace</span>
+                        </button>
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900">Workbook Harian</h1>
+                      </section>
+                      <Card padding="lg" className="space-y-4">
+                        <h2 className="text-lg sm:text-xl font-bold text-zinc-900">{WORKBOOK_EXERCISE.title}</h2>
+                        <p className="text-xs sm:text-sm text-zinc-600">{WORKBOOK_EXERCISE.instruction}</p>
+                        <textarea
+                          rows={10}
+                          placeholder="Tuliskan refleksi jujurmu di sini... (tersimpan otomatis)"
+                          value={workbookContent}
+                          onChange={(e) => handleWorkbookChange(e.target.value)}
+                          className="w-full bg-zinc-50 text-zinc-900 text-sm font-medium rounded-2xl border border-zinc-200 p-4 outline-none focus:border-black"
+                        />
+                        <div className="flex justify-end">
+                          <Button variant="primary" size="md" onClick={() => { localStorage.setItem('penulis_plus_workbook', workbookContent); showToast('Tersimpan otomatis'); }}>
+                            Simpan Workbook
+                          </Button>
+                        </div>
+                      </Card>
+                    </div>
+                  )}
+
+                  {workspaceSubView === 'template-outline' && (
+                    <div className="space-y-6 sm:space-y-8 animate-fade">
+                      <section className="space-y-3 pt-1 sm:pt-2">
+                        <button onClick={() => setWorkspaceSubView(null)} className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-600 hover:text-black">
+                          <Icon name="ArrowLeft" size={16} />
+                          <span>Kembali ke Workspace</span>
+                        </button>
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900">Template Outline</h1>
+                      </section>
+                      <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-zinc-100">
+                        {OUTLINE_TEMPLATES.map(tmpl => (
+                          <button key={tmpl.id} onClick={() => setSelectedOutlineId(tmpl.id)} className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold ${selectedOutlineId === tmpl.id ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-600'}`}>
+                            {tmpl.targetWords} Kata
+                          </button>
+                        ))}
+                      </div>
+                      <Card padding="lg" className="space-y-4">
+                        <div className="flex justify-between items-center pb-4 border-b border-zinc-100">
+                          <h2 className="text-lg font-bold text-zinc-900">{activeOutline.title}</h2>
+                          <Button variant="primary" size="sm" onClick={() => copyText(activeOutline.rawText, 'Template berhasil disalin')}>Salin Template</Button>
+                        </div>
+                        <pre className="p-4 rounded-2xl bg-zinc-900 text-zinc-100 text-xs font-mono whitespace-pre-wrap">{activeOutline.rawText}</pre>
+                      </Card>
+                    </div>
+                  )}
+
+                  {workspaceSubView === 'template-naskah' && (
+                    <div className="space-y-6 sm:space-y-8 animate-fade">
+                      <section className="space-y-3 pt-1 sm:pt-2">
+                        <button onClick={() => setWorkspaceSubView(null)} className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-600 hover:text-black">
+                          <Icon name="ArrowLeft" size={16} />
+                          <span>Kembali ke Workspace</span>
+                        </button>
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900">Template Naskah</h1>
+                      </section>
+                      <Card padding="lg" className="space-y-4">
+                        <div className="flex justify-between items-center pb-4 border-b border-zinc-100">
+                          <h2 className="text-lg font-bold text-zinc-900">Format Naskah Resmi Antologi</h2>
+                          <Button variant="primary" size="sm" onClick={() => copyText(MANUSCRIPT_TEMPLATE.rawText, 'Format berhasil disalin')}>Salin Format</Button>
+                        </div>
+                        <pre className="p-4 rounded-2xl bg-zinc-900 text-zinc-100 text-xs font-mono whitespace-pre-wrap">{MANUSCRIPT_TEMPLATE.rawText}</pre>
+                      </Card>
+                    </div>
+                  )}
+
+                  {workspaceSubView === 'editor' && (
+                    <div className="space-y-6 sm:space-y-8 animate-fade">
+                      <section className="space-y-3 pt-1 sm:pt-2">
+                        <div className="flex items-center justify-between">
+                          <button onClick={() => setWorkspaceSubView(null)} className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-600 hover:text-black">
+                            <Icon name="ArrowLeft" size={16} />
+                            <span>Kembali ke Workspace</span>
+                          </button>
+                          <span className="text-xs text-zinc-500 font-medium">Tersimpan {draftLastSaved}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900">Editor Menulis</h1>
+                          <Button variant="outline" size="sm" onClick={() => copyText(`${draftTitle}\n\n${draftContent}`, 'Draf berhasil disalin')}>Salin Draf</Button>
+                        </div>
+                      </section>
+                      <Card padding="md" className="space-y-4 bg-zinc-50 border-zinc-200">
+                        <div className="grid grid-cols-3 gap-2 text-center pb-3 border-b border-zinc-200/60">
+                          <div><div className="text-2xl font-extrabold text-zinc-900">{editorWordCount}</div><div className="text-xs text-zinc-500">Kata</div></div>
+                          <div><div className="text-2xl font-extrabold text-zinc-900">{editorCharCount}</div><div className="text-xs text-zinc-500">Karakter</div></div>
+                          <div><div className="text-2xl font-extrabold text-zinc-900">~{editorReadingTime}</div><div className="text-xs text-zinc-500">Menit Baca</div></div>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span>Target: {draftTarget} Kata</span>
+                          <span className="font-bold">{editorProgressPct}%</span>
+                        </div>
+                        <ProgressBar value={editorWordCount} max={draftTarget} size="md" />
+                      </Card>
+                      <Card padding="lg" className="min-h-[460px] flex flex-col space-y-4">
+                        <input
+                          type="text"
+                          placeholder="Judul Naskah Antologi..."
+                          value={draftTitle}
+                          onChange={(e) => handleEditorTitleChange(e.target.value)}
+                          className="w-full bg-transparent text-xl sm:text-2xl font-bold text-zinc-900 border-b border-zinc-200/60 pb-3 outline-none"
+                        />
+                        <textarea
+                          rows={16}
+                          placeholder="Mulai tuliskan naskahmu di sini dengan tenang dan leluasa..."
+                          value={draftContent}
+                          onChange={(e) => handleEditorContentChange(e.target.value)}
+                          className="w-full flex-1 bg-transparent text-sm sm:text-base leading-relaxed text-zinc-900 outline-none resize-none"
+                        />
+                      </Card>
+                    </div>
+                  )}
+
+                  {workspaceSubView === 'ebook' && (
+                    <div className="space-y-6 sm:space-y-8 animate-fade">
+                      <section className="space-y-3 pt-1 sm:pt-2">
+                        <button onClick={() => setWorkspaceSubView(null)} className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-600 hover:text-black">
+                          <Icon name="ArrowLeft" size={16} />
+                          <span>Kembali ke Workspace</span>
+                        </button>
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900">Ebook Panduan</h1>
+                      </section>
+                      <Card padding="lg" className="border-dashed border-zinc-300 text-center py-10">
+                        <div className="max-w-md mx-auto space-y-3">
+                          <div className="w-16 h-20 rounded-2xl bg-zinc-900 text-white flex items-center justify-center mx-auto shadow-md">PDF</div>
+                          <h2 className="text-lg font-bold text-zinc-900">Ebook Panduan Menulis Antologi 2026</h2>
+                          <p className="text-xs text-zinc-500">Ebook akan tersedia di versi berikutnya.</p>
+                        </div>
+                      </Card>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ========================================================================= */}
+              {/* 4. WRITING ASSISTANT (ASISTEN MENULIS / AI) VIEW (Sprint 4) */}
+              {/* ========================================================================= */}
+              {currentView === 'ai' && (
+                <div className="space-y-6 sm:space-y-8 animate-fade">
+                  
+                  {/* Header */}
+                  {!selectedAiCategoryId && !showOnlyAiFavorites && !aiSearchQuery ? (
+                    <section className="space-y-1 pt-1 sm:pt-2">
+                      <div className="flex items-center justify-between">
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 leading-tight">
+                          Asisten Menulis
+                        </h1>
+                        {aiFavorites.length > 0 && (
+                          <button
+                            onClick={() => setShowOnlyAiFavorites(true)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white border border-zinc-200 hover:border-zinc-300 text-zinc-700 transition-all shadow-sm"
+                          >
+                            <Icon name="Heart" size={13} fill="#0A0A0A" />
+                            <span>Tersimpan ({aiFavorites.length})</span>
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-sm sm:text-base text-zinc-500 font-medium">
+                        Gunakan AI untuk membantumu menemukan ide, memperbaiki tulisan, dan menyelesaikan naskah lebih cepat.
+                      </p>
+                    </section>
+                  ) : (
+                    <section className="space-y-3 pt-1 sm:pt-2">
+                      <button
+                        onClick={() => {
+                          setSelectedAiCategoryId(null);
+                          setShowOnlyAiFavorites(false);
+                          setAiSearchQuery('');
+                        }}
+                        className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-600 hover:text-black transition-colors group"
+                      >
+                        <Icon name="ArrowLeft" size={16} className="group-hover:-translate-x-0.5 transition-transform" />
+                        <span>Kembali ke Kategori Asisten</span>
+                      </button>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 leading-tight">
+                            {showOnlyAiFavorites
+                              ? 'Prompt Tersimpan'
+                              : aiSearchQuery && !selectedAiCategoryId
+                              ? `Pencarian: "${aiSearchQuery}"`
+                              : AI_PROMPT_CATEGORIES.find(c => c.id === selectedAiCategoryId)?.title}
+                          </h1>
+                          <p className="text-sm text-zinc-500 font-medium mt-0.5">
+                            {showOnlyAiFavorites
+                              ? 'Kumpulan prompt asisten menulis favorit yang telah kamu simpan.'
+                              : aiSearchQuery && !selectedAiCategoryId
+                              ? `Ditemukan ${filteredAiPrompts.length} prompt yang cocok.`
+                              : AI_PROMPT_CATEGORIES.find(c => c.id === selectedAiCategoryId)?.description}
+                          </p>
+                        </div>
+
+                        {aiFavorites.length > 0 && !showOnlyAiFavorites && (
+                          <button
+                            onClick={() => setShowOnlyAiFavorites(true)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white border border-zinc-200 hover:border-zinc-300 text-zinc-700 transition-all self-start sm:self-auto shadow-sm"
+                          >
+                            <Icon name="Heart" size={13} fill="#0A0A0A" />
+                            <span>Tersimpan ({aiFavorites.length})</span>
+                          </button>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Search Bar */}
+                  <div className="relative flex items-center">
+                    <div className="absolute left-4 text-zinc-400"><Icon name="Search" size={18} /></div>
+                    <input
+                      type="text"
+                      placeholder={selectedAiCategoryId ? 'Cari dalam kategori ini...' : 'Cari prompt ide, judul, diksi, proofreading, atau pembuka...'}
+                      value={aiSearchQuery}
+                      onChange={(e) => setAiSearchQuery(e.target.value)}
+                      className="w-full bg-white text-zinc-900 text-sm font-medium rounded-2xl border border-zinc-200/90 pl-11 pr-10 py-3.5 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all shadow-sm"
+                    />
+                    {aiSearchQuery && (
+                      <button onClick={() => setAiSearchQuery('')} className="absolute right-3.5 p-1 text-zinc-400 hover:text-zinc-700">
+                        <Icon name="X" size={16} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 9 Category Cards Grid */}
+                  {!selectedAiCategoryId && !showOnlyAiFavorites && !aiSearchQuery ? (
+                    <section className="space-y-3 sm:space-y-4">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Kategori Asisten Menulis</span>
+                        <span className="text-xs font-medium text-zinc-400">9 Kategori • 45 Prompt</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
+                        {AI_PROMPT_CATEGORIES.map((category) => (
+                          <Card
+                            key={category.id}
+                            padding="md"
+                            interactive
+                            onClick={() => setSelectedAiCategoryId(category.id)}
+                            className="group flex items-center justify-between gap-4 select-none"
+                          >
+                            <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
+                              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center text-zinc-800 shrink-0 group-hover:bg-zinc-900 group-hover:text-white transition-colors duration-200">
+                                <Icon name={category.iconName} size={19} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 tracking-tight leading-snug truncate">{category.title}</h3>
+                                  <span className="text-[10px] font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-full border border-zinc-200/50">{category.promptCount} prompt</span>
+                                </div>
+                                <p className="text-xs text-zinc-500 font-medium line-clamp-1 mt-0.5">{category.description}</p>
+                              </div>
+                            </div>
+                            <div className="w-8 h-8 rounded-xl bg-zinc-50 group-hover:bg-zinc-100 flex items-center justify-center text-zinc-400 group-hover:text-zinc-900 shrink-0">
+                              <Icon name="ChevronRight" size={17} />
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    </section>
+                  ) : (
+                    /* Prompt Items List */
+                    <div className="space-y-4 animate-fade">
+                      {filteredAiPrompts.length === 0 ? (
+                        <Card padding="lg" className="border-dashed border-zinc-300 text-center py-12">
+                          <div className="max-w-sm mx-auto space-y-2">
+                            <h3 className="text-base font-bold text-zinc-900">
+                              {showOnlyAiFavorites ? 'Belum ada prompt tersimpan' : 'Tidak ada prompt yang cocok'}
+                            </h3>
+                            <p className="text-xs text-zinc-500">
+                              {showOnlyAiFavorites ? 'Klik ikon hati pada prompt untuk menyimpannya.' : 'Coba gunakan kata kunci pencarian yang berbeda.'}
+                            </p>
+                          </div>
+                        </Card>
+                      ) : (
+                        filteredAiPrompts.map((promptItem) => {
+                          const isFav = aiFavorites.includes(promptItem.id);
+                          const parentCat = AI_PROMPT_CATEGORIES.find(c => c.id === promptItem.categoryId);
+                          return (
+                            <Card key={promptItem.id} padding="lg" className="space-y-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="space-y-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {promptItem.tag && (
+                                      <span className="text-[10px] font-semibold text-zinc-600 bg-zinc-100 px-2.5 py-0.5 rounded-full border border-zinc-200/60">
+                                        {promptItem.tag}
+                                      </span>
+                                    )}
+                                    {parentCat && <span className="text-[10px] text-zinc-400">• {parentCat.title}</span>}
+                                  </div>
+                                  <h3 className="text-base sm:text-lg font-bold text-zinc-900 tracking-tight leading-snug">{promptItem.title}</h3>
+                                  <p className="text-xs sm:text-sm text-zinc-500 font-medium">{promptItem.description}</p>
+                                </div>
+
+                                <button
+                                  onClick={() => toggleAiFavorite(promptItem.id)}
+                                  className={`p-2.5 rounded-xl border transition-all ${
+                                    isFav ? 'bg-black border-black text-white' : 'bg-white border-zinc-200 text-zinc-400 hover:text-zinc-800'
+                                  }`}
+                                  title={isFav ? 'Hapus favorit' : 'Simpan favorit'}
+                                >
+                                  <Icon name="Heart" size={16} fill={isFav ? '#FFFFFF' : 'none'} strokeWidth={isFav ? 0 : 2} />
+                                </button>
+                              </div>
+
+                              {/* Beautiful Code Block */}
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-1">
+                                  <span>Prompt Siap Pakai</span>
+                                  <span className="font-normal lowercase">Tempel ke ChatGPT / Claude</span>
+                                </div>
+                                <pre className="p-4 sm:p-5 rounded-2xl bg-zinc-900 text-zinc-100 text-xs sm:text-sm font-sans whitespace-pre-wrap leading-relaxed overflow-x-auto border border-zinc-800 selection:bg-zinc-700">
+                                  {promptItem.promptText}
+                                </pre>
+                              </div>
+
+                              {/* Footer Action */}
+                              <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <span className="text-xs text-zinc-400">
+                                  Tips: Ganti teks di dalam tanda kurung siku <code className="bg-zinc-100 px-1 py-0.5 rounded text-zinc-700 font-mono text-[10px]">[ ... ]</code> sebelum dikirim.
+                                </span>
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={() => copyText(promptItem.promptText, 'Prompt berhasil disalin')}
+                                  leftIcon={<Icon name="Copy" size={14} className="text-white" />}
+                                  className="w-full sm:w-auto shrink-0 shadow-sm"
+                                >
+                                  Salin Prompt
+                                </Button>
+                              </div>
+                            </Card>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ========================================================================= */}
+              {/* 5. PROFIL VIEW (7 SECTIONS) */}
+              {/* ========================================================================= */}
+              {currentView === 'profil' && (
+                <div className="space-y-6 sm:space-y-8 animate-fade pb-12">
+                  {/* Page Header */}
+                  <section className="space-y-1 pt-1 sm:pt-2">
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 leading-tight">
+                      Profil Penulis
+                    </h1>
+                    <p className="text-sm sm:text-base text-zinc-500 font-medium">
+                      Kelola identitas, statistik menulis, dan preferensi workspace Anda.
+                    </p>
+                  </section>
+
+                  {/* SECTION 1: WRITER PROFILE CARD */}
+                  <Card padding="lg" className="bg-white border-zinc-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+                      <div className="flex items-center gap-4 min-w-0">
+                        {/* Avatar */}
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-zinc-900 text-white flex items-center justify-center text-xl sm:text-2xl font-bold tracking-tight shadow-sm shrink-0">
+                          {user.name ? user.name.slice(0, 2).toUpperCase() : 'P+'}
+                        </div>
+
+                        {/* Writer Name & Badges */}
+                        <div className="space-y-1.5 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h2 className="text-lg sm:text-xl font-bold text-zinc-900 tracking-tight truncate">
+                              {user.name || 'Penulis Antologi'}
+                            </h2>
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60 shrink-0">
+                              Batch 2026
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            {/* Daily Goal Badge */}
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-600 bg-zinc-100 px-2.5 py-1 rounded-full border border-zinc-200/60">
+                              <Icon name="Target" size={13} className="text-zinc-600" />
+                              <span>Target: {draftTarget || 300} Kata/hari</span>
+                            </span>
+
+                            {/* Current Streak Badge */}
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-800 bg-zinc-100 px-2.5 py-1 rounded-full border border-zinc-200/60">
+                              <Icon name="Flame" size={13} className="text-amber-600" />
+                              <span>3 Hari Beruntun</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Edit Profile Button */}
+                      <div className="flex items-center gap-2 self-start sm:self-auto">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setProfileTempName(user.name || '');
+                            setIsEditingProfileName(true);
+                          }}
+                          leftIcon={<Icon name="Edit3" size={14} />}
+                          className="font-semibold text-xs rounded-xl"
+                        >
+                          Ubah Profil
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Inline Name Edit Drawer/Form */}
+                    {isEditingProfileName && (
+                      <form onSubmit={handleSaveProfileName} className="mt-5 pt-4 border-t border-zinc-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 animate-fade">
+                        <div className="flex-1">
+                          <label className="block text-xs font-bold text-zinc-700 mb-1">
+                            Nama Lengkap / Nama Pena Penulis:
+                          </label>
+                          <input
+                            type="text"
+                            value={profileTempName}
+                            onChange={(e) => setProfileTempName(e.target.value)}
+                            placeholder="Masukkan nama pena..."
+                            className="w-full bg-zinc-50 text-zinc-900 text-sm font-medium rounded-xl border border-zinc-300 px-3.5 py-2.5 focus:bg-white focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 sm:self-end">
+                          <Button type="submit" variant="primary" size="sm" leftIcon={<Icon name="Check" size={14} />}>
+                            Simpan
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsEditingProfileName(false)}
+                            leftIcon={<Icon name="X" size={14} />}
+                          >
+                            Batal
+                          </Button>
+                        </div>
+                      </form>
+                    )}
+                  </Card>
+
+                  {/* SECTION 2: WRITING STATISTICS (4 Stat Cards) */}
+                  <section className="space-y-3 sm:space-y-4">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                        Statistik Penulisan
+                      </span>
+                      <span className="text-xs font-medium text-zinc-400">
+                        Performa Produktivitas
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                      {/* Card 1: Drafts */}
+                      <Card padding="md" className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                            Draf
+                          </span>
+                          <div className="w-7 h-7 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-700">
+                            <Icon name="FileText" size={15} />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xl sm:text-2xl font-extrabold text-zinc-900 tracking-tight">
+                            {draftTitle ? '1 Naskah' : '3 Draf'}
+                          </div>
+                          <p className="text-[11px] text-zinc-400 font-medium mt-0.5">
+                            Naskah antologi aktif
+                          </p>
+                        </div>
+                      </Card>
+
+                      {/* Card 2: Words Written */}
+                      <Card padding="md" className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                            Total Kata
+                          </span>
+                          <div className="w-7 h-7 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-700">
+                            <Icon name="Type" size={15} />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xl sm:text-2xl font-extrabold text-zinc-900 tracking-tight">
+                            2,450
+                          </div>
+                          <p className="text-[11px] text-zinc-400 font-medium mt-0.5">
+                            Kata tertulis di sesi ini
+                          </p>
+                        </div>
+                      </Card>
+
+                      {/* Card 3: Current Streak */}
+                      <Card padding="md" className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                            Streak
+                          </span>
+                          <div className="w-7 h-7 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-700">
+                            <Icon name="Flame" size={15} className="text-amber-600" />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xl sm:text-2xl font-extrabold text-zinc-900 tracking-tight">
+                            3 Hari
+                          </div>
+                          <p className="text-[11px] text-zinc-400 font-medium mt-0.5">
+                            Konsistensi menulis harian
+                          </p>
+                        </div>
+                      </Card>
+
+                      {/* Card 4: Workspace Progress */}
+                      <Card padding="md" className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                            Progress
+                          </span>
+                          <div className="w-7 h-7 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-700">
+                            <Icon name="Target" size={15} />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xl sm:text-2xl font-extrabold text-zinc-900 tracking-tight">
+                            65%
+                          </div>
+                          <p className="text-[11px] text-zinc-400 font-medium mt-0.5">
+                            Kesiapan naskah akhir
+                          </p>
+                        </div>
+                      </Card>
+                    </div>
+                  </section>
+
+                  {/* SECTION 3: TODAY'S GOAL */}
+                  <section className="space-y-3 sm:space-y-4">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                        Target Hari Ini
+                      </span>
+                      <span className="text-xs font-medium text-zinc-400">
+                        {Math.min(100, Math.round(((editorWordCount || 180) / (draftTarget || 300)) * 100))}% Tercapai
+                      </span>
+                    </div>
+
+                    <Card padding="lg" className="bg-zinc-900 text-white border-black space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                              Target Menulis Harian
+                            </span>
+                          </div>
+                          <h3 className="text-xl font-bold text-white tracking-tight">
+                            {editorWordCount || 180} <span className="text-sm font-normal text-zinc-400">dari {draftTarget || 300} Kata</span>
+                          </h3>
+                        </div>
+
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => { setCurrentView('menulis'); setWorkspaceSubView('editor'); }}
+                          leftIcon={<Icon name="PenLine" size={14} />}
+                          className="bg-white text-black hover:bg-zinc-100 font-semibold self-start sm:self-auto"
+                        >
+                          Lanjut Menulis
+                        </Button>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-white h-full rounded-full transition-all duration-300"
+                            style={{ width: `${Math.min(100, Math.round(((editorWordCount || 180) / (draftTarget || 300)) * 100))}%` }}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-zinc-400">
+                          <span>Tersisa {Math.max(0, (draftTarget || 300) - (editorWordCount || 180))} kata lagi untuk mencapai target hari ini</span>
+                          <span className="font-semibold text-white">
+                            {Math.min(100, Math.round(((editorWordCount || 180) / (draftTarget || 300)) * 100))}%
+                          </span>
+                        </div>
+                      </div>
+                    </Card>
+                  </section>
+
+                  {/* SECTION 4: FAVORITES (4 Quick Access Cards) */}
+                  <section className="space-y-3 sm:space-y-4">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                        Konten Tersimpan & Favorit
+                      </span>
+                      <span className="text-xs font-medium text-zinc-400">
+                        Akses Cepat Bookmark
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+                      {/* 1. Favorite Titles */}
+                      <Card
+                        padding="md"
+                        interactive
+                        onClick={() => {
+                          setCurrentView('inspirasi');
+                          setSelectedInspirasiCategoryId('ide-judul');
+                        }}
+                        className="group flex items-center justify-between gap-4 select-none"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="w-10 h-10 rounded-2xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center text-zinc-800 shrink-0 group-hover:bg-zinc-900 group-hover:text-white transition-colors duration-200">
+                            <Icon name="Type" size={18} />
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-bold text-zinc-900 tracking-tight leading-snug">
+                              Ide Judul Favorit
+                            </h4>
+                            <p className="text-xs text-zinc-500 font-medium truncate mt-0.5">
+                              Variasi judul naskah tersimpan
+                            </p>
+                          </div>
+                        </div>
+                        <div className="w-8 h-8 rounded-xl bg-zinc-50 group-hover:bg-zinc-100 flex items-center justify-center text-zinc-400 group-hover:text-zinc-900 transition-colors duration-200 shrink-0">
+                          <Icon name="ChevronRight" size={17} />
+                        </div>
+                      </Card>
+
+                      {/* 2. Favorite Story Ideas */}
+                      <Card
+                        padding="md"
+                        interactive
+                        onClick={() => {
+                          setCurrentView('inspirasi');
+                          setSelectedInspirasiCategoryId('ide-cerita');
+                        }}
+                        className="group flex items-center justify-between gap-4 select-none"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="w-10 h-10 rounded-2xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center text-zinc-800 shrink-0 group-hover:bg-zinc-900 group-hover:text-white transition-colors duration-200">
+                            <Icon name="Sparkles" size={18} />
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-bold text-zinc-900 tracking-tight leading-snug">
+                              Ide Cerita Favorit
+                            </h4>
+                            <p className="text-xs text-zinc-500 font-medium truncate mt-0.5">
+                              Premis dan konflik naskah
+                            </p>
+                          </div>
+                        </div>
+                        <div className="w-8 h-8 rounded-xl bg-zinc-50 group-hover:bg-zinc-100 flex items-center justify-center text-zinc-400 group-hover:text-zinc-900 transition-colors duration-200 shrink-0">
+                          <Icon name="ChevronRight" size={17} />
+                        </div>
+                      </Card>
+
+                      {/* 3. Favorite Prompts */}
+                      <Card
+                        padding="md"
+                        interactive
+                        onClick={() => {
+                          setCurrentView('ai');
+                          setSelectedAiCategoryId(null);
+                          setShowOnlyAiFavorites(true);
+                        }}
+                        className="group flex items-center justify-between gap-4 select-none"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="w-10 h-10 rounded-2xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center text-zinc-800 shrink-0 group-hover:bg-zinc-900 group-hover:text-white transition-colors duration-200">
+                            <Icon name="Bot" size={18} />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <h4 className="text-sm font-bold text-zinc-900 tracking-tight leading-snug">
+                                Prompt Asisten AI
+                              </h4>
+                              {aiFavorites.length > 0 && (
+                                <span className="text-[10px] font-bold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-full border border-zinc-200">
+                                  {aiFavorites.length}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-zinc-500 font-medium truncate mt-0.5">
+                              Prompt toolkit siap pakai
+                            </p>
+                          </div>
+                        </div>
+                        <div className="w-8 h-8 rounded-xl bg-zinc-50 group-hover:bg-zinc-100 flex items-center justify-center text-zinc-400 group-hover:text-zinc-900 transition-colors duration-200 shrink-0">
+                          <Icon name="ChevronRight" size={17} />
+                        </div>
+                      </Card>
+
+                      {/* 4. Favorite Dictionary */}
+                      <Card
+                        padding="md"
+                        interactive
+                        onClick={() => {
+                          setCurrentView('inspirasi');
+                          setSelectedInspirasiCategoryId('kamus-diksi');
+                        }}
+                        className="group flex items-center justify-between gap-4 select-none"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="w-10 h-10 rounded-2xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center text-zinc-800 shrink-0 group-hover:bg-zinc-900 group-hover:text-white transition-colors duration-200">
+                            <Icon name="BookMarked" size={18} />
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-bold text-zinc-900 tracking-tight leading-snug">
+                              Kamus Diksi Sastra
+                            </h4>
+                            <p className="text-xs text-zinc-500 font-medium truncate mt-0.5">
+                              Koleksi diksi indah PUEBI
+                            </p>
+                          </div>
+                        </div>
+                        <div className="w-8 h-8 rounded-xl bg-zinc-50 group-hover:bg-zinc-100 flex items-center justify-center text-zinc-400 group-hover:text-zinc-900 transition-colors duration-200 shrink-0">
+                          <Icon name="ChevronRight" size={17} />
+                        </div>
+                      </Card>
+                    </div>
+                  </section>
+
+                  {/* SECTION 5: RECENT ACTIVITY */}
+                  <section className="space-y-3 sm:space-y-4">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                        Aktivitas Terakhir
+                      </span>
+                      <span className="text-xs font-medium text-zinc-400">
+                        Riwayat Sesi
+                      </span>
+                    </div>
+
+                    <Card padding="md" className="space-y-3">
+                      <div className="divide-y divide-zinc-100">
+                        <div className="py-3 first:pt-0 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-8 h-8 rounded-xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center text-zinc-800 shrink-0">
+                              <Icon name="PenLine" size={15} />
+                            </div>
+                            <div className="min-w-0">
+                              <h4 className="text-xs sm:text-sm font-bold text-zinc-900 truncate">
+                                Menyusun Bab 3 Naskah
+                              </h4>
+                              <p className="text-[11px] text-zinc-500 font-medium truncate mt-0.5">
+                                Menambahkan 180 kata di Editor Menulis
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] sm:text-xs text-zinc-400 font-medium shrink-0">
+                            Hari ini, 14:20
+                          </span>
+                        </div>
+
+                        <div className="py-3 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-8 h-8 rounded-xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center text-zinc-800 shrink-0">
+                              <Icon name="Bot" size={15} />
+                            </div>
+                            <div className="min-w-0">
+                              <h4 className="text-xs sm:text-sm font-bold text-zinc-900 truncate">
+                                Menyimpan Prompt Asisten AI
+                              </h4>
+                              <p className="text-[11px] text-zinc-500 font-medium truncate mt-0.5">
+                                Menyimpan prompt "Hook Pembuka Sensorik"
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] sm:text-xs text-zinc-400 font-medium shrink-0">
+                            Hari ini, 11:05
+                          </span>
+                        </div>
+
+                        <div className="py-3 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-8 h-8 rounded-xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center text-zinc-800 shrink-0">
+                              <Icon name="Check" size={15} />
+                            </div>
+                            <div className="min-w-0">
+                              <h4 className="text-xs sm:text-sm font-bold text-zinc-900 truncate">
+                                Menyelesaikan Blueprint Hari ke-3
+                              </h4>
+                              <p className="text-[11px] text-zinc-500 font-medium truncate mt-0.5">
+                                Modul Struktur 3 Babak Naskah
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] sm:text-xs text-zinc-400 font-medium shrink-0">
+                            Kemarin, 20:45
+                          </span>
+                        </div>
+
+                        <div className="py-3 last:pb-0 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-8 h-8 rounded-xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center text-zinc-800 shrink-0">
+                              <Icon name="BookOpen" size={15} />
+                            </div>
+                            <div className="min-w-0">
+                              <h4 className="text-xs sm:text-sm font-bold text-zinc-900 truncate">
+                                Eksplorasi Kamus Diksi Sastra
+                              </h4>
+                              <p className="text-[11px] text-zinc-500 font-medium truncate mt-0.5">
+                                Mempelajari 10 diksi puitis emosi rasa
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] sm:text-xs text-zinc-400 font-medium shrink-0">
+                            2 hari lalu
+                          </span>
+                        </div>
+                      </div>
+                    </Card>
+                  </section>
+
+                  {/* SECTION 6: WORKSPACE PROGRESS */}
+                  <section className="space-y-3 sm:space-y-4">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                        Progress Modul Workspace
+                      </span>
+                      <span className="text-xs font-medium text-zinc-400">
+                        Status Keseluruhan
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+                      {/* Library (Inspirasi) */}
+                      <Card padding="md" className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Icon name="Sparkles" size={16} className="text-zinc-800" />
+                            <h4 className="text-xs sm:text-sm font-bold text-zinc-900">
+                              Library Inspirasi
+                            </h4>
+                          </div>
+                          <span className="text-[10px] font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-full border border-zinc-200">
+                            7 Kategori Aktif
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-500 font-medium">
+                          Akses ke 70+ ide cerita, judul, kalimat pembuka, penutup, dan kamus diksi.
+                        </p>
+                        <ProgressBar value={100} max={100} showPercentage={false} size="sm" />
+                      </Card>
+
+                      {/* Workspace (Menulis) */}
+                      <Card padding="md" className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Icon name="PenLine" size={16} className="text-zinc-800" />
+                            <h4 className="text-xs sm:text-sm font-bold text-zinc-900">
+                              Workspace Menulis
+                            </h4>
+                          </div>
+                          <span className="text-[10px] font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-full border border-zinc-200">
+                            Editor Aktif
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-500 font-medium">
+                          Zen writing editor dengan auto-save lokal dan kalkulator kata real-time.
+                        </p>
+                        <ProgressBar value={Math.min(100, Math.round(((editorWordCount || 180) / (draftTarget || 300)) * 100))} max={100} showPercentage={false} size="sm" />
+                      </Card>
+
+                      {/* Writing Assistant */}
+                      <Card padding="md" className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Icon name="Bot" size={16} className="text-zinc-800" />
+                            <h4 className="text-xs sm:text-sm font-bold text-zinc-900">
+                              Asisten Menulis AI
+                            </h4>
+                          </div>
+                          <span className="text-[10px] font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-full border border-zinc-200">
+                            45 Prompt Terkurasi
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-500 font-medium">
+                          9 kategori prompt teruji untuk brainstorming, proofreading, dan revisi alur.
+                        </p>
+                        <ProgressBar value={100} max={100} showPercentage={false} size="sm" />
+                      </Card>
+
+                      {/* Blueprint 10 Hari */}
+                      <Card padding="md" className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Icon name="LayoutTemplate" size={16} className="text-zinc-800" />
+                            <h4 className="text-xs sm:text-sm font-bold text-zinc-900">
+                              Blueprint 10 Hari
+                            </h4>
+                          </div>
+                          <span className="text-[10px] font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-full border border-zinc-200">
+                            {completedDays.length}/10 Hari
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-500 font-medium">
+                          Panduan terstruktur langkah harian menyelesaikan naskah antologi.
+                        </p>
+                        <ProgressBar value={completedDays.length || 4} max={10} showPercentage={false} size="sm" />
+                      </Card>
+                    </div>
+                  </section>
+
+                  {/* SECTION 7: SETTINGS & ACCOUNT ACTIONS */}
+                  <section className="space-y-3 sm:space-y-4">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                        Pengaturan & Keamanan
+                      </span>
+                      <span className="text-xs font-medium text-zinc-400">
+                        Preferensi Akun
+                      </span>
+                    </div>
+
+                    <Card padding="md" className="divide-y divide-zinc-100 space-y-0">
+                      {/* Workspace Password */}
+                      <div
+                        onClick={() => setProfileActiveModal('password')}
+                        className="py-3.5 first:pt-1 flex items-center justify-between cursor-pointer hover:bg-zinc-50/80 -mx-4 px-4 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-700">
+                            <Icon name="Lock" size={15} />
+                          </div>
+                          <div>
+                            <h4 className="text-xs sm:text-sm font-bold text-zinc-900">
+                              Password Workspace
+                            </h4>
+                            <p className="text-[11px] text-zinc-500 font-medium mt-0.5">
+                              Autentikasi akses ruang kerja antologi aktif
+                            </p>
+                          </div>
+                        </div>
+                        <Icon name="ChevronRight" size={17} className="text-zinc-400" />
+                      </div>
+
+                      {/* About Penulis+ */}
+                      <div
+                        onClick={() => setProfileActiveModal('about')}
+                        className="py-3.5 flex items-center justify-between cursor-pointer hover:bg-zinc-50/80 -mx-4 px-4 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-700">
+                            <Icon name="Info" size={15} />
+                          </div>
+                          <div>
+                            <h4 className="text-xs sm:text-sm font-bold text-zinc-900">
+                              Tentang Penulis+ Workspace
+                            </h4>
+                            <p className="text-[11px] text-zinc-500 font-medium mt-0.5">
+                              Versi 2.4.0 • Ranah Menulis 2026
+                            </p>
+                          </div>
+                        </div>
+                        <Icon name="ChevronRight" size={17} className="text-zinc-400" />
+                      </div>
+
+                      {/* Privacy Policy */}
+                      <div
+                        onClick={() => setProfileActiveModal('privacy')}
+                        className="py-3.5 flex items-center justify-between cursor-pointer hover:bg-zinc-50/80 -mx-4 px-4 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-700">
+                            <Icon name="ShieldCheck" size={15} />
+                          </div>
+                          <div>
+                            <h4 className="text-xs sm:text-sm font-bold text-zinc-900">
+                              Kebijakan Privasi & Data Lokal
+                            </h4>
+                            <p className="text-[11px] text-zinc-500 font-medium mt-0.5">
+                              100% naskah tersimpan di perangkat lokal Anda
+                            </p>
+                          </div>
+                        </div>
+                        <Icon name="ChevronRight" size={17} className="text-zinc-400" />
+                      </div>
+
+                      {/* Logout Action */}
+                      <div
+                        onClick={handleLogout}
+                        className="py-3.5 last:pb-1 flex items-center justify-between cursor-pointer hover:bg-red-50/40 -mx-4 px-4 transition-colors group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-red-50 flex items-center justify-center text-red-600 group-hover:bg-red-100 transition-colors">
+                            <Icon name="LogOut" size={15} />
+                          </div>
+                          <div>
+                            <h4 className="text-xs sm:text-sm font-bold text-red-600">
+                              Keluar dari Workspace
+                            </h4>
+                            <p className="text-[11px] text-zinc-400 font-medium mt-0.5">
+                              Tutup sesi menulis pada perangkat ini
+                            </p>
+                          </div>
+                        </div>
+                        <Icon name="ChevronRight" size={17} className="text-red-400" />
+                      </div>
+                    </Card>
+                  </section>
+
+                  {/* MODAL DIALOGS (About, Privacy, Password Info) */}
+                  {profileActiveModal && (
+                    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade">
+                      <Card padding="lg" className="w-full max-w-md bg-white border-zinc-200 shadow-2xl space-y-4">
+                        {profileActiveModal === 'password' && (
+                          <React.Fragment>
+                            <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
+                              <div className="flex items-center gap-2">
+                                <Icon name="Lock" size={18} className="text-zinc-900" />
+                                <h3 className="text-base font-bold text-zinc-900">Password Workspace</h3>
+                              </div>
+                              <button onClick={() => setProfileActiveModal(null)} className="p-1 rounded-lg text-zinc-400 hover:text-black">
+                                <Icon name="X" size={18} />
+                              </button>
+                            </div>
+                            <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed font-medium">
+                              Sesi workspace Anda terlindungi dengan Password Workspace resmi program antologi Ranah Menulis. Kredensial tersimpan secara aman pada penyimpanan sesi lokal perangkat.
+                            </p>
+                            <div className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 text-xs font-semibold text-zinc-800 flex items-center gap-2">
+                              <Icon name="ShieldCheck" size={16} className="text-emerald-600" />
+                              <span>Status: Terotentikasi & Aktif</span>
+                            </div>
+                          </React.Fragment>
+                        )}
+
+                        {profileActiveModal === 'about' && (
+                          <React.Fragment>
+                            <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
+                              <div className="flex items-center gap-2">
+                                <Icon name="Info" size={18} className="text-zinc-900" />
+                                <h3 className="text-base font-bold text-zinc-900">Tentang Penulis+</h3>
+                              </div>
+                              <button onClick={() => setProfileActiveModal(null)} className="p-1 rounded-lg text-zinc-400 hover:text-black">
+                                <Icon name="X" size={18} />
+                              </button>
+                            </div>
+                            <div className="space-y-2 text-xs sm:text-sm text-zinc-600 leading-relaxed font-medium">
+                              <p>
+                                <strong>Penulis+ Workspace</strong> adalah ruang kerja digital eksklusif yang dirancang khusus untuk memfasilitasi para peserta penulisan buku antologi bersama <em>Ranah Menulis</em>.
+                              </p>
+                              <p>
+                                Menggabungkan perpustakaan inspirasi terkurasi, ruang tulis bebas distraksi, blueprint naskah 10 hari, dan panduan prompt AI sastra.
+                              </p>
+                            </div>
+                            <div className="text-[11px] text-zinc-400 font-semibold pt-1">
+                              © 2026 Ranah Menulis • Hak Cipta Dilindungi
+                            </div>
+                          </React.Fragment>
+                        )}
+
+                        {profileActiveModal === 'privacy' && (
+                          <React.Fragment>
+                            <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
+                              <div className="flex items-center gap-2">
+                                <Icon name="ShieldCheck" size={18} className="text-zinc-900" />
+                                <h3 className="text-base font-bold text-zinc-900">Kebijakan Privasi</h3>
+                              </div>
+                              <button onClick={() => setProfileActiveModal(null)} className="p-1 rounded-lg text-zinc-400 hover:text-black">
+                                <Icon name="X" size={18} />
+                              </button>
+                            </div>
+                            <div className="space-y-2 text-xs sm:text-sm text-zinc-600 leading-relaxed font-medium">
+                              <p>
+                                Semua draf naskah, refleksi workbook harian, dan preferensi tersimpan Anda disimpan 100% secara lokal pada penyimpanan perangkat Anda (Browser Local Storage).
+                              </p>
+                              <p>
+                                Penulis+ tidak mengirimkan isi naskah Anda ke server pihak ketiga tanpa persetujuan Anda. Hak cipta naskah sepenuhnya milik penulis.
+                              </p>
+                            </div>
+                          </React.Fragment>
+                        )}
+
+                        <div className="pt-2 flex justify-end">
+                          <Button variant="primary" size="sm" onClick={() => setProfileActiveModal(null)}>
+                            Tutup
+                          </Button>
+                        </div>
+                      </Card>
+                    </div>
+                  )}
+                </div>
+              )}
+            </main>
+
+            {/* Mobile Bottom Navigation */}
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-zinc-200/80 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
+              <div className="max-w-md mx-auto px-2 h-16 flex items-center justify-around">
+                {navTabs.map((item) => {
+                  const isActive = currentView === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setCurrentView(item.id);
+                        if (item.id === 'menulis') setWorkspaceSubView(null);
+                        if (item.id === 'inspirasi') { setSelectedInspirasiCategoryId(null); setInspirasiSearch(''); }
+                        if (item.id === 'ai') { setSelectedAiCategoryId(null); setAiSearchQuery(''); setShowOnlyAiFavorites(false); }
+                      }}
+                      className={`flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-xl transition-all duration-200 relative group focus:outline-none ${
+                        isActive ? 'text-black font-semibold' : 'text-zinc-400 hover:text-zinc-700 font-medium'
+                      }`}
+                    >
+                      <div className={`p-1 rounded-xl transition-all duration-200 ${isActive ? 'bg-zinc-100 scale-105' : ''}`}>
+                        <Icon name={item.icon} size={20} strokeWidth={isActive ? 2.3 : 1.8} />
+                      </div>
+                      <span className="text-[10px] tracking-tight mt-0.5 select-none leading-none">{item.label}</span>
+                      {isActive && <span className="w-1 h-1 rounded-full bg-black mt-1" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </nav>
+          </div>
+        </div>
+      );
+    }
+
+    try {
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<MainApp />);
+    } catch (err) {
+      console.error('Render Error:', err);
+      document.getElementById('root').innerHTML = `
+        <div style="padding: 24px; font-family: sans-serif; color: #111;">
+          <h2 style="font-size: 18px; font-weight: bold;">Terjadi kesalahan saat memuat aplikasi</h2>
+          <pre style="background: #fee2e2; color: #991b1b; padding: 12px; border-radius: 8px; font-size: 12px; margin-top: 8px;">${err.message}</pre>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>
